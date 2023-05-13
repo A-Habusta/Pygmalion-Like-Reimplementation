@@ -3,10 +3,9 @@
 \usepackage[english]{babel}
 \usepackage{amsfonts}
 \usepackage{fancyhdr}
+\usepackage{hyperref}
 \usepackage{titling}
 
-
-\usepackage{titling}
 \renewcommand\maketitlehooka{\null\mbox{}\vfill}
 \renewcommand\maketitlehookd{\vfill\null}
 
@@ -40,10 +39,23 @@
 
     \section{Basic Information}
         \subsection{Description of Software Project}
+            This software project is a programming system inspired by an old project called Pygmalion.
+            Pygmalion never moved past the prototype stage, and this project is a proof of concept that is meant
+            to show how using a system with ideas borrowed from Pygmalion would be like. These ideas include
+            representing data and methods with icons, and creating functions by remembering user actions.
 
         \subsection{Used technologies}
+            \begin{itemize}
+                \item F\# - used programming language
+                \item Fable - F\# to JS compiler
+            \end{itemize}
 
         \subsection{References}
+            \begin{itemize}
+                \item Pygmalion specification
+                    \subitem - \url{https://apps.dtic.mil/sti/pdfs/ADA016811.pdf}
+            \end{itemize}
+
 
     \section{Detailed functionality}
         \subsection{Data representation}
@@ -53,14 +65,33 @@
         \subsection{Main Screen}
         \subsection{Icon Designer}
 
-    \section{Usage example}
-        \subsection{Factorial}
+    \section{Usage example - Factorial}
+        This section will demonstrate how an icon which computes the factorial of a number can be created.\\
+
+        We open the program and see the main screen\\
+
+        We click the \textbf{Create New Icon} button below the custom icons menu.\\
+
+        We name our icon 'factorial'. This creates a new tab to which we are moved. \\
+
 
 
     \section{Other requirements}
 
 
-    \section{Milestones}
+    \section{Timeline \& Milestones}
+        \begin{tabular}{ | c | c | c | }
+            \hline
+            Date & Milestone & Presentation method\\
+            \hline
+
+            14.05.2023 & First version of documentation & Meeting with supervisor \\
+
+            % Add more milestones after meeting
+
+            \hline
+
+        \end{tabular}
 
 
     \addcontentsline{toc}{section}{Appendix A: Terminology}
