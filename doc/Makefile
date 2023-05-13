@@ -8,5 +8,5 @@ $(PDF): $(TEX)
 	pdflatex $(TEX)
 
 clean:
-	rm -f $(PDF) *.log *.aux *.out *.pdf
+	rm -f $(PDF) *.log *.aux *.out *.pdf *.toc
 
