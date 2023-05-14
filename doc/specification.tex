@@ -1,18 +1,32 @@
 \documentclass{article}
-\usepackage[utf8]{inputenc}
+
 \usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
 \usepackage{amsfonts}
 \usepackage{fancyhdr}
 \usepackage{hyperref}
+\usepackage{listings}
 \usepackage{titling}
+\usepackage{xcolor}
 
 \renewcommand\maketitlehooka{\null\mbox{}\vfill}
 \renewcommand\maketitlehookd{\vfill\null}
 
-\newcommand{\currentversion}{0.1.0}
+\newcommand{\currentversion}{0.2.0}
+
+\lstdefinelanguage{fsharp} {
+    morekeywords={let, new, match, with, rec, open, module, namespace, type, of, member, and, for, in, do, begin, end, fun, function, try, mutable, if, then, else},
+    keywordstyle=\color{blue},
+    sensitive=false,
+    morecomment=[l][\color{green}]{//},
+    morestring=[b]",
+    stringstyle=\color{red}
+}
+
+\lstset{language=fsharp}
+
 
 %extremely hacky solution right now
-
 \author{%
     \vspace{3.5mm}\currentversion\\
     Adrián Habušta
@@ -39,7 +53,7 @@
 
     \section{Basic Information}
         \subsection{Description of Software Project}
-            This software project is a programming system inspired by an old project called Pygmalion.
+            This software project is inspired by an old programming system called Pygmalion.
             Pygmalion never moved past the prototype stage, and this project is a proof of concept that is meant
             to show how using a system with ideas borrowed from Pygmalion would be like. These ideas include
             representing data, methods and even objects with icons. Another key idea is creating methods by remembering
@@ -66,9 +80,26 @@
 
 
     \section{Detailed functionality}
-        \subsection{Icons representation}
-            Internally, icons will consist of only 
+        \subsection{Icon representation}
+            Internally, custom icons will be stored in a Dictionary mapping from names to specific icons. The data
+            will look something like this:
+            \lstinputlisting{icon_representation_example.fs}
 
+            \noindent
+            The CustomIcon type represents a sort of "master" icon, which stores all data related to an icon. This
+            means both the instructions of said icon, and also information necessary for drawing the icon to the screen.
+            This is done by using the DrawnIcon, which only stores iformation used for drawing an icon.
+
+        \subsection{Evaluation}
+            Icons are evaluated by building simple trees of instructions. The instructions will look something like
+            this:
+            \lstinputlisting{icon_evaluation_example.fs}
+
+            \noindent
+            Icons will, by default, only contain a Trap, which when hit during runtime, opens the icon for editing.
+            During editing, operations made by the user will slowly build up an instruction tree that is stored and
+            later used to evaluate instances of said icon. Using custom icons within an icon is done by saving the name
+            of the icon we wish to evaluate.
 
 
     \section{Screens}
@@ -95,14 +126,33 @@
         containing the \textbf{context} of the icon (which is mostly empty for new icons). This is where we program
         icons. \\
 
-        The context of an icon reprents the internals of an icon, which are used to compute the value of an icon. We
-        can add icons to this context by dragging them onto the screen on this new tab. We can add all the necessary
-        icons for computing the factorial now.\\
+        The context of an icon reprents the internals of an icon. We can program an icon by dragging icons onto the
+        screen, and dragging values between them. This builds up a tree of operations which will be executed anytime
+        our new icon is ran.\\
 
-        \Large TODO \normalsize
+        In the factorial, we need to use an \textbf{If} instruction to continue. We create an \textbf{IsEqual} icon and
+        use it to check whether the input parameter of the factorial is equal to one. In our case, it is not, so the
+        \textbf{False} branch is highlighted, which means that all following operations we do will only execute if the
+        input is not equal to one.\\
 
+        We are writing factorial recursively, so we need to add a new factorial icon to our screen. We then subtract
+        one from the input, and drag the result of this operation into the factorial icon. We then left click this icon
+        to run it.\\
 
+        Since we never defined what happens if we execute the \textbf{True} branch, our program hits a \textbf{Trap},
+        and it creates a new tab that contains our current status, which means the state where the input is equal to 1.
+        We create a new constant block with the value 1, and drag it to the master icon (the first icon that was on
+        the screen when we started programming the factorial). This signifies that this value is the output, so running
+        the factorial icon with an input of 1 will now actually return a valid value.\\
 
+        Now we can close this tab and return to our first editing tab. We can see that the changes we made in the other
+        tab carried over. We now can try evaluating the factorial again, which will hit another trap, but this time it
+        does so because we don't know what to do after evaluating the factorial. We will be put into a new tab where
+        the input is 2.\\
+
+        In this tab, we can finally finish the method, by taking the output of the inner factorial, multiplying it with
+        our input, and dragging the result into the output. We can now close all new tabs, and our factorial block can
+        used.\\
 
     \section{Other requirements}
         Because of the fact that this project is a proof of concept, there are not many requirements placed
