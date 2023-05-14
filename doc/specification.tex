@@ -9,7 +9,7 @@
 \renewcommand\maketitlehooka{\null\mbox{}\vfill}
 \renewcommand\maketitlehookd{\vfill\null}
 
-\newcommand{\currentversion}{0.0.1}
+\newcommand{\currentversion}{0.1.0}
 
 %extremely hacky solution right now
 
@@ -25,9 +25,9 @@
     put forward in the year 1975. It involved programming using so-called
     icons, and creating functions by remembering user actions, instead of
     writing them in code. This project focuses on creating a simple programming
-    system with the same ideas as Pygmalion.
+    system with the same key ideas as Pygmalion.
     }
-\date{May 4, 2023}
+\date{May 14, 2023}
 
 \begin{document}
     \begin{titlepage}
@@ -42,28 +42,41 @@
             This software project is a programming system inspired by an old project called Pygmalion.
             Pygmalion never moved past the prototype stage, and this project is a proof of concept that is meant
             to show how using a system with ideas borrowed from Pygmalion would be like. These ideas include
-            representing data and methods with icons, and creating functions by remembering user actions.
+            representing data, methods and even objects with icons. Another key idea is creating methods by remembering
+            user actions. This is what this project will focus on the most.
 
         \subsection{Used technologies}
             \begin{itemize}
-                \item F\# - used programming language
-                \item Fable - F\# to JS compiler
+                \item
+                    F\# - used programming language
+                \item
+                    Fable - F\# to JS compiler
+
             \end{itemize}
 
         \subsection{References}
             \begin{itemize}
-                \item Pygmalion specification
-                    \subitem - \url{https://apps.dtic.mil/sti/pdfs/ADA016811.pdf}
+
+                \item
+                    Pygmalion specification
+                    \subitem
+                        - \url{https://apps.dtic.mil/sti/pdfs/ADA016811.pdf}
+
             \end{itemize}
 
 
     \section{Detailed functionality}
-        \subsection{Data representation}
+        \subsection{Icons representation}
+            Internally, icons will consist of only 
+
 
 
     \section{Screens}
-        \subsection{Main Screen}
-        \subsection{Icon Designer}
+        \subsection{Single Tab}
+        This is the only screen the software will feature. There will, however, exist multiple instances of this screen
+        called 'tabs' that can be switched between.
+        % Insert picture here
+
 
     \section{Usage example - Factorial}
         This section will demonstrate how an icon which computes the factorial of a number can be created.\\
@@ -72,11 +85,43 @@
 
         We click the \textbf{Create New Icon} button below the custom icons menu.\\
 
-        We name our icon 'factorial'. This creates a new tab to which we are moved. \\
+        We name our icon 'factorial'. This creates a new empty icon, with said name, which is added to the custom icons
+        menu. This icon can than be dragged onto the field. \\
+
+        With the icon on the field, we can fill its inputs with values, and then left-click on the icon to execute its
+        code. \\
+
+        Since the icon is new, we immediately hit a so called \textbf{trap}. This pauses execution and opens a new tab
+        containing the \textbf{context} of the icon (which is mostly empty for new icons). This is where we program
+        icons. \\
+
+        The context of an icon reprents the internals of an icon, which are used to compute the value of an icon. We
+        can add icons to this context by dragging them onto the screen on this new tab. We can add all the necessary
+        icons for computing the factorial now.\\
+
+        \Large TODO \normalsize
+
 
 
 
     \section{Other requirements}
+        Because of the fact that this project is a proof of concept, there are not many requirements placed
+        on aspects of the project such as performance. The only requirement is that the software works on modern
+        browsers, and is responsive.
+
+    \section{Project restrictions}
+        \begin{itemize}
+
+            \item
+                The only supported type that can be used within the icons are integers. The project may be extended
+                to support arbitrary types later on, but for now, this is a non-goal.
+
+            \item
+                The icons can only represent pure functions. There is no internal state that can be referenced. This
+                means that icons representing data can only exist as functions returning a constant, and that creating
+                icons which represent objects is impossible as of now.
+
+        \end{itemize}
 
 
     \section{Timeline \& Milestones}
@@ -95,6 +140,7 @@
 
 
     \addcontentsline{toc}{section}{Appendix A: Terminology}
+
     \section*{Appendix A: Terminology}
 
 
