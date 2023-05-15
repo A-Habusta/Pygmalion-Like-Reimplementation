@@ -83,7 +83,7 @@
         \subsection{Icon representation}
             Internally, custom icons will be stored in a Dictionary mapping from names to specific icons. The data
             will look something like this:
-            \lstinputlisting{icon_representation_example.fs}
+            \lstinputlisting{include/icon_representation_example.fs}
 
             \noindent
             The CustomIcon type represents a sort of "master" icon, which stores all data related to an icon. This
@@ -93,7 +93,7 @@
         \subsection{Evaluation}
             Icons are evaluated by building simple trees of instructions. The instructions will look something like
             this:
-            \lstinputlisting{icon_evaluation_example.fs}
+            \lstinputlisting{include/icon_evaluation_example.fs}
 
             \noindent
             Icons will, by default, only contain a Trap, which when hit during runtime, opens the icon for editing.
