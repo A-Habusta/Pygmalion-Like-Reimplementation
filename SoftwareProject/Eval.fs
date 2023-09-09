@@ -3,6 +3,13 @@ module SoftwareProject.Eval
 open Utils
 open Icons
 
+exception TrapException of IconID
+
+type IconContext =
+    { TypeLibrary: IconTypeLibrary
+      EvaluatedParams: int list
+      ID: IconID }
+
 let evalUnary operator operand =
     match operator with
     | "!" -> if operand = FalseValue then TrueValue else FalseValue
@@ -42,11 +49,12 @@ let getCorrectBinaryOperation operator =
     | "%" -> (%)
     | _ -> getCorrectCompareBinaryOperation operator
 
+
 let rec eval iconContext instruction =
     let boundEval = (eval iconContext)
     match instruction with
     | Primitive n -> n
-    | Trap -> failwith "Trap sprung"
+    | Trap -> raise(TrapException iconContext.ID)
     | Unary(operator, operand) -> evalUnary operator (boundEval operand)
     | Binary(operator, leftOperand, rightOperand) ->
         let operation = getCorrectBinaryOperation operator
@@ -55,9 +63,11 @@ let rec eval iconContext instruction =
         let res = boundEval cond
         if res = FalseValue then boundEval falseBranch
         else boundEval trueBranch
-    | Icon(name, parameters) ->
+    | Icon(typeName, ID, parameters) ->
         let evaluatedParameters = List.map boundEval parameters
-        let newContext = {iconContext with Parameters = evaluatedParameters}
-        let nextInstruction = fetchIconInstructionTree iconLibrary name
-        eval newContext nextInstruction
-    | Parameter index -> iconContext.Parameters[index]
+        let newContext = { iconContext with
+                            EvaluatedParams = evaluatedParameters
+                            ID = ID }
+        let nextInstruction = fetchIconFromTypeLibrary iconContext.TypeLibrary typeName
+        eval newContext nextInstruction.InstructionTree
+    | Parameter index -> iconContext.EvaluatedParams[index]

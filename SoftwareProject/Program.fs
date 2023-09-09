@@ -1,7 +1,9 @@
 ﻿module SoftwareProject.Main
 
-open Eval
+
 open System
+open Icons
+open Eval
 
 
 let run input =
@@ -18,3 +20,22 @@ and runCommand input =
         let result = run input
         printfn "%A" result
         readConsole false
+
+let testedInstructionTree =
+    Binary("+", Primitive(1), Primitive(1))
+
+let emptyContext = {
+    TypeLibrary = Map.empty
+    ID = Guid.Empty
+    EvaluatedParams = List.Empty
+}
+
+
+let testInstructionTree =
+    let result = eval emptyContext testedInstructionTree
+    printfn "%A" result
+
+[<EntryPoint>]
+let main argv =
+    testInstructionTree
+    0
