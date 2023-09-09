@@ -1,11 +1,8 @@
 ﻿module SoftwareProject.Main
 
+open FactorialTest
 
-open System
-open Icons
-open Eval
-
-
+(*
 let run input =
     failwith "Not implemented"
 
@@ -20,22 +17,24 @@ and runCommand input =
         let result = run input
         printfn "%A" result
         readConsole false
+*)
 
-let testedInstructionTree =
-    Binary("+", Primitive(1), Primitive(1))
+let testFunction name funcA funcB start stop =
+    let rec internalLoop i =
+        if i < stop then
+            let resultA = funcA i
+            let resultB = funcB i
+            if resultA <> resultB then
+                printfn "Error: %A <> %A" resultA resultB
+            internalLoop (i + 1)
 
-let emptyContext = {
-    TypeLibrary = Map.empty
-    ID = Guid.Empty
-    EvaluatedParams = List.Empty
-}
+    printfn "Testing %s..." name
+    internalLoop start
+    printfn "%s gives valid results from %d to %d" name start stop
+    printfn ""
 
-
-let testInstructionTree =
-    let result = eval emptyContext testedInstructionTree
-    printfn "%A" result
 
 [<EntryPoint>]
 let main argv =
-    testInstructionTree
+    testFunction "Factorial" iconFactorial referenceFactorial 0 10
     0

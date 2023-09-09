@@ -7,7 +7,7 @@ exception TrapException of IconID
 
 type IconContext =
     { TypeLibrary: IconTypeLibrary
-      EvaluatedParams: int list
+      EvaluatedParams: int array
       ID: IconID }
 
 let evalUnary operator operand =
@@ -33,7 +33,9 @@ let getCorrectCompareBinaryOperation operatorString =
     let matchFunc =
         function
         | "<" -> (<)
+        | "<=" -> (<=)
         | ">" -> (>)
+        | ">=" -> (>=)
         | "=" -> (=)
         | "!=" -> (<>)
         | _ -> getCorrectBoolBinaryOperation operatorString
@@ -53,7 +55,7 @@ let getCorrectBinaryOperation operator =
 let rec eval iconContext instruction =
     let boundEval = (eval iconContext)
     match instruction with
-    | Primitive n -> n
+    | Constant n -> n
     | Trap -> raise(TrapException iconContext.ID)
     | Unary(operator, operand) -> evalUnary operator (boundEval operand)
     | Binary(operator, leftOperand, rightOperand) ->
@@ -63,8 +65,8 @@ let rec eval iconContext instruction =
         let res = boundEval cond
         if res = FalseValue then boundEval falseBranch
         else boundEval trueBranch
-    | Icon(typeName, ID, parameters) ->
-        let evaluatedParameters = List.map boundEval parameters
+    | IconCall(typeName, ID, parameters) ->
+        let evaluatedParameters = Array.map boundEval parameters
         let newContext = { iconContext with
                             EvaluatedParams = evaluatedParameters
                             ID = ID }

@@ -8,16 +8,16 @@ type IconID = Guid
 // Data representation
 type Instruction =
     | Trap
-    | Primitive of int
+    | Constant of int
     | Unary of string * Instruction
     | Binary of string * Instruction * Instruction
     | If of Instruction * Instruction * Instruction
-    | Icon of IconTypeName * IconID * Instruction list
+    | IconCall of IconTypeName * IconID * Instruction array
     | Parameter of int
 
 type IconInstance =
     { TypeName : IconTypeName
-      Context : IconID list }
+      Context : IconID array }
 
 type IconType = {
     InstructionTree : Instruction
@@ -42,6 +42,3 @@ let fetchIconFromInstanceLibrary (library: IconInstanceLibrary) id =
 
 let addIconToInstanceLibrary (library: IconInstanceLibrary) id icon : IconInstanceLibrary =
     library.Add(id, icon)
-
-
-let iconInstanceLibrary = Map<IconID, IconInstance>[]
