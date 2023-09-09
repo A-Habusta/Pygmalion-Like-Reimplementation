@@ -1,6 +1,6 @@
 ﻿module SoftwareProject.Main
 
-open FactorialTest
+open Factorial
 
 (*
 let run input =

@@ -1,4 +1,4 @@
-module SoftwareProject.FactorialTest
+module SoftwareProject.Factorial
 
 open System
 open Icons
