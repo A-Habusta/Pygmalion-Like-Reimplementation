@@ -33,14 +33,14 @@ and DrawnIcon =
 type IconLibrary =
     { Icons : Dictionary<IconName, CustomIcon> }
 
-let iconLibrary = {Icons = Dictionary<IconName, CustomIcon>()}
-
-
-let fetchIconInstructionTree library name =
+let fetchIcon library name =
     match library.Icons.TryGetValue(name) with
-    | true, icon -> icon.InstructionTree
+    | true, icon -> icon
     | false, _ -> failwith "Icon not found"
 
+let fetchIconInstructionTree library name = fetchIcon library name |> fun icon -> icon.InstructionTree
 
 let addIconToLibrary library name icon =
     library.Icons.Add(name, icon)
+
+let iconLibrary = {Icons = Dictionary<IconName, CustomIcon>()}
