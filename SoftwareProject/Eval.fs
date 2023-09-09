@@ -1,6 +1,5 @@
 module SoftwareProject.Eval
 
-
 open Utils
 open Icons
 
