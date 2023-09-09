@@ -20,21 +20,21 @@ and runCommand input =
 *)
 
 let testFunction name funcA funcB start stop =
-    let rec internalLoop i =
-        if i < stop then
-            let resultA = funcA i
-            let resultB = funcB i
-            if resultA <> resultB then
-                printfn "Error: %A <> %A" resultA resultB
-            internalLoop (i + 1)
+    let sequenceA = seq { for i in start..stop -> funcA i }
+    let sequenceB = seq { for i in start..stop -> funcB i }
 
-    printfn "Testing %s..." name
-    internalLoop start
-    printfn "%s gives valid results from %d to %d" name start stop
     printfn ""
+    printfn "Testing %s..." name
 
+    // Ask if this is lazily evaluated
+    let firstMismatch = Seq.zip sequenceA sequenceB |> Seq.tryFind (fun (a, b) -> a <> b)
+    match firstMismatch with
+    | Some item -> printfn "Test failed: Mismatch at item %A" item
+    | None -> printfn "Test passed"
 
 [<EntryPoint>]
 let main argv =
+    ignore argv
+
     testFunction "Factorial" iconFactorial referenceFactorial 0 10
     0
