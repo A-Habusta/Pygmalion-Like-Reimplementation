@@ -9,8 +9,8 @@
         <Compile Include="Utility.fs" />
         <Compile Include="Icons.fs" />
         <Compile Include="Eval.fs" />
-        <Compile Include="FactorialTest.fs" />
         <Compile Include="Factorial.fs" />
+        <Compile Include="Fibonacci.fs" />
         <Compile Include="Program.fs"/>
     </ItemGroup>
 

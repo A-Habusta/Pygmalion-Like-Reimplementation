@@ -1,23 +1,7 @@
 ﻿module SoftwareProject.Main
 
 open Factorial
-
-(*
-let run input =
-    failwith "Not implemented"
-
-let rec readConsole stop =
-    let input = Console.ReadLine()
-    runCommand input
-
-and runCommand input =
-    match input with
-    | "exit" -> ()
-    | _ ->
-        let result = run input
-        printfn "%A" result
-        readConsole false
-*)
+open Fibonacci
 
 let testFunction name funcA funcB start stop =
     let sequenceA = seq { for i in start..stop -> funcA i }
@@ -37,4 +21,5 @@ let main argv =
     ignore argv
 
     testFunction "Factorial" iconFactorial referenceFactorial 0 10
+    testFunction "Fibonacci" iconFibonacci referenceFibonacci 0 100
     0
