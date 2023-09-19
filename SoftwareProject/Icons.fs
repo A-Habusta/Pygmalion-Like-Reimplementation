@@ -19,9 +19,9 @@ type IconInstance =
     { TypeName : IconTypeName
       Context : IconID array }
 
-type IconType = {
-    InstructionTree : Instruction
-    ParameterCount : int }
+type IconType =
+    { InstructionTree : Instruction
+      ParameterCount : int }
 
 
 type IconTypeLibrary = Map<IconTypeName, IconType>
