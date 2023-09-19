@@ -6,9 +6,9 @@ open Eval
 
 let factorialInstructionTree =
     let recurse = IconCall("factorial", Guid.Empty, [|Binary("-", Parameter(0), Constant(1))|])
-    let condition = Binary("=", Parameter(0), Constant(0))
+    let condition = Binary("=", BaseIconParameter(0), Constant(0))
     let trueBranch = Constant(1)
-    let falseBranch = Binary("*", Parameter(0), recurse)
+    let falseBranch = Binary("*", BaseIconParameter(0), recurse)
     If(condition, trueBranch, falseBranch)
 
 let factorialIconType = {

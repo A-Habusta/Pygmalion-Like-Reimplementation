@@ -15,7 +15,8 @@ and Instruction =
     | Binary of string * SpecificInstruction * SpecificInstruction
     | If of SpecificInstruction * SpecificInstruction * SpecificInstruction
     | IconCall of IconTypeName * SpecificInstruction array
-    | Parameter of int
+    | BaseIconParameter of int
+
 
 type IconInstance =
     { TypeName : IconTypeName

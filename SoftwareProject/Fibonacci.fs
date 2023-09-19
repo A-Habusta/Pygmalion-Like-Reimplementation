@@ -9,10 +9,10 @@ let fibonacciInstructionTree =
 
 // You don't have to do this, it's just a lot faster than using basic recursion
 let fibonacciInternalInstructionTree =
-    let addParameters = Binary("+", Parameter(1), Parameter(2))
-    let decrementCounter = Binary("-", Parameter(0), Constant(1))
+    let addParameters = Binary("+", BaseIconParameter(1), BaseIconParameter(2))
+    let decrementCounter = Binary("-", BaseIconParameter(0), Constant(1))
     If( Binary("=", Parameter(0), Constant(0)),
-        Parameter(1),
+        BaseIconParameter(1),
         IconCall("fibonacciInternal", Guid.Empty, [| decrementCounter; Parameter(2); addParameters |]) )
 
 let fibonacciIconType = {

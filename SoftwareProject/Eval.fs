@@ -73,4 +73,4 @@ let rec eval (customIconContext : IconContext) (specificInstruction : SpecificIn
                             ID = id }
         let nextInstruction = fetchIconFromTypeLibrary customIconContext.TypeLibrary typeName
         eval newContext nextInstruction.InstructionTree
-    | Parameter index -> customIconContext.EvaluatedParams[index]
+    | BaseIconParameter index -> customIconContext.EvaluatedParams[index]
