@@ -4,12 +4,13 @@ open System
 open Icons
 open Eval
 
+
 let factorialInstructionTree =
-    let recurse = IconCall("factorial", Guid.Empty, [|Binary("-", Parameter(0), Constant(1))|])
-    let condition = Binary("=", BaseIconParameter(0), Constant(0))
+    let recurse = IconCall("factorial", [|toEmpty (Binary("-", toEmpty (BaseIconParameter(0)), toEmpty (Constant(1))))|])
+    let condition = Binary("=", toEmpty (BaseIconParameter(0)), toEmpty (Constant(0)))
     let trueBranch = Constant(1)
-    let falseBranch = Binary("*", BaseIconParameter(0), recurse)
-    If(condition, trueBranch, falseBranch)
+    let falseBranch = Binary("*", toEmpty (BaseIconParameter(0)), toEmpty recurse)
+    toEmpty (If(toEmpty condition, toEmpty trueBranch, toEmpty falseBranch))
 
 let factorialIconType = {
     InstructionTree = factorialInstructionTree

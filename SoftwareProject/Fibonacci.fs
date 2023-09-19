@@ -5,15 +5,16 @@ open Icons
 open Eval
 
 let fibonacciInstructionTree =
-    IconCall("fibonacciInternal", Guid.Empty, [| Parameter(0); Constant(1); Constant(1) |])
+    toEmpty (IconCall("fibonacciInternal", [| toEmpty (BaseIconParameter(0)); toEmpty (Constant(1)); toEmpty (Constant(1)) |]))
 
 // You don't have to do this, it's just a lot faster than using basic recursion
 let fibonacciInternalInstructionTree =
-    let addParameters = Binary("+", BaseIconParameter(1), BaseIconParameter(2))
-    let decrementCounter = Binary("-", BaseIconParameter(0), Constant(1))
-    If( Binary("=", Parameter(0), Constant(0)),
-        BaseIconParameter(1),
-        IconCall("fibonacciInternal", Guid.Empty, [| decrementCounter; Parameter(2); addParameters |]) )
+    let addParameters = Binary("+", toEmpty (BaseIconParameter(1)), toEmpty (BaseIconParameter(2)))
+    let decrementCounter = Binary("-", toEmpty (BaseIconParameter(0)), toEmpty (Constant(1)))
+    toEmpty(
+        If ( toEmpty (Binary("=", toEmpty (BaseIconParameter(0)), toEmpty (Constant(0)))),
+        toEmpty (BaseIconParameter(1)),
+        toEmpty (IconCall("fibonacciInternal", [| toEmpty decrementCounter; toEmpty (BaseIconParameter(2)); toEmpty addParameters |])) ))
 
 let fibonacciIconType = {
     InstructionTree = fibonacciInstructionTree

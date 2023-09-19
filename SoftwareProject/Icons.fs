@@ -17,6 +17,9 @@ and Instruction =
     | IconCall of IconTypeName * SpecificInstruction array
     | BaseIconParameter of int
 
+let DefaultTrapInstruction = (Guid.Empty, Trap)
+
+let toEmpty (instruction : Instruction) : SpecificInstruction = (Guid.Empty, instruction)
 
 type IconInstance =
     { TypeName : IconTypeName
