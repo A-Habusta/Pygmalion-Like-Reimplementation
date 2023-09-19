@@ -6,13 +6,15 @@ type IconTypeName = string
 type IconID = Guid
 
 // Data representation
-type Instruction =
+
+type SpecificInstruction = IconID * Instruction
+and Instruction =
     | Trap
     | Constant of int
-    | Unary of string * Instruction
-    | Binary of string * Instruction * Instruction
-    | If of Instruction * Instruction * Instruction
-    | IconCall of IconTypeName * IconID * Instruction array
+    | Unary of string * SpecificInstruction
+    | Binary of string * SpecificInstruction * SpecificInstruction
+    | If of SpecificInstruction * SpecificInstruction * SpecificInstruction
+    | IconCall of IconTypeName * SpecificInstruction array
     | Parameter of int
 
 type IconInstance =
@@ -20,7 +22,7 @@ type IconInstance =
       Context : IconID array }
 
 type IconType =
-    { InstructionTree : Instruction
+    { InstructionTree : SpecificInstruction
       ParameterCount : int }
 
 

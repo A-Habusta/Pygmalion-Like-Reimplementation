@@ -52,11 +52,12 @@ let getCorrectBinaryOperation operator =
     | _ -> getCorrectCompareBinaryOperation operator
 
 
-let rec eval iconContext instruction =
-    let boundEval = (eval iconContext)
+let rec eval (customIconContext : IconContext) (specificInstruction : SpecificInstruction) =
+    let boundEval = (eval customIconContext)
+    let id, instruction = specificInstruction
     match instruction with
     | Constant n -> n
-    | Trap -> raise(TrapException iconContext.ID)
+    | Trap -> raise(TrapException customIconContext.ID)
     | Unary(operator, operand) -> evalUnary operator (boundEval operand)
     | Binary(operator, leftOperand, rightOperand) ->
         let operation = getCorrectBinaryOperation operator
@@ -65,11 +66,11 @@ let rec eval iconContext instruction =
         let res = boundEval cond
         if res = FalseValue then boundEval falseBranch
         else boundEval trueBranch
-    | IconCall(typeName, ID, parameters) ->
+    | IconCall(typeName, parameters) ->
         let evaluatedParameters = Array.map boundEval parameters
-        let newContext = { iconContext with
+        let newContext = { customIconContext with
                             EvaluatedParams = evaluatedParameters
-                            ID = ID }
-        let nextInstruction = fetchIconFromTypeLibrary iconContext.TypeLibrary typeName
+                            ID = id }
+        let nextInstruction = fetchIconFromTypeLibrary customIconContext.TypeLibrary typeName
         eval newContext nextInstruction.InstructionTree
-    | Parameter index -> iconContext.EvaluatedParams[index]
+    | Parameter index -> customIconContext.EvaluatedParams[index]
