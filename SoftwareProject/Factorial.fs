@@ -6,7 +6,7 @@ open Eval
 
 
 let factorialInstructionTree =
-    let recurse = IconCall("factorial", [|withEmptyID (Binary("-", withEmptyID (BaseIconParameter(0)), withEmptyID (Constant(1))))|])
+    let recurse = IconCall("factorial", [withEmptyID (Binary("-", withEmptyID (BaseIconParameter(0)), withEmptyID (Constant(1))))])
     let condition = Binary("=", withEmptyID (BaseIconParameter(0)), withEmptyID (Constant(0)))
     let trueBranch = Constant(1)
     let falseBranch = Binary("*", withEmptyID (BaseIconParameter(0)), withEmptyID recurse)
@@ -21,12 +21,12 @@ let typeLibrary = Map<IconTypeName, IconType>[(IconTypeName("factorial"), factor
 
 let factorialContextTemplate = {
     TypeLibrary = typeLibrary
-    EvaluatedParams = [||]
+    EvaluatedParams = []
     ID = Guid.Empty
 }
 
 let iconFactorial number =
-    let context = { factorialContextTemplate with EvaluatedParams = [| number |] }
+    let context = { factorialContextTemplate with EvaluatedParams = [number] }
     eval context factorialInstructionTree
 
 let referenceFactorial number =

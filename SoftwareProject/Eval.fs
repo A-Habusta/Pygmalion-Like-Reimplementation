@@ -7,7 +7,7 @@ exception TrapException of IconID
 
 type IconContext =
     { TypeLibrary: IconTypeLibrary
-      EvaluatedParams: int array
+      EvaluatedParams: int list
       ID: IconID }
 
 let evalUnary operator operand =
@@ -67,7 +67,7 @@ let rec eval (customIconContext : IconContext) (specificInstruction : SpecificIn
         if res = FalseValue then boundEval falseBranch
         else boundEval trueBranch
     | IconCall(typeName, parameters) ->
-        let evaluatedParameters = Array.map boundEval parameters
+        let evaluatedParameters = List.map boundEval parameters
         let newContext = { customIconContext with
                             EvaluatedParams = evaluatedParameters
                             ID = id }

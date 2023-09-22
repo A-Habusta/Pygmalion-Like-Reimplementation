@@ -5,7 +5,7 @@ open Icons
 open Eval
 
 let fibonacciInstructionTree =
-    withEmptyID (IconCall("fibonacciInternal", [| withEmptyID (BaseIconParameter(0)); withEmptyID (Constant(1)); withEmptyID (Constant(1)) |]))
+    withEmptyID (IconCall("fibonacciInternal", [ withEmptyID (BaseIconParameter(0)); withEmptyID (Constant(1)); withEmptyID (Constant(1)) ]))
 
 // You don't have to do this, it's just a lot faster than using basic recursion
 let fibonacciInternalInstructionTree =
@@ -14,7 +14,7 @@ let fibonacciInternalInstructionTree =
     withEmptyID(
         If ( withEmptyID (Binary("=", withEmptyID (BaseIconParameter(0)), withEmptyID (Constant(0)))),
         withEmptyID (BaseIconParameter(1)),
-        withEmptyID (IconCall("fibonacciInternal", [| withEmptyID decrementCounter; withEmptyID (BaseIconParameter(2)); withEmptyID addParameters |])) ))
+        withEmptyID (IconCall("fibonacciInternal", [ withEmptyID decrementCounter; withEmptyID (BaseIconParameter(2)); withEmptyID addParameters ])) ))
 
 let fibonacciIconType = {
     InstructionTree = fibonacciInstructionTree
@@ -32,12 +32,12 @@ let typeLibrary = Map<IconTypeName, IconType> [
 
 let fibonacciContextTemplate = {
     TypeLibrary = typeLibrary
-    EvaluatedParams = [||]
+    EvaluatedParams = []
     ID = Guid.Empty
 }
 
 let iconFibonacci number =
-    let context = { fibonacciContextTemplate with EvaluatedParams = [| number |] }
+    let context = { fibonacciContextTemplate with EvaluatedParams = [number] }
     eval context fibonacciInstructionTree
 
 let referenceFibonacci number =

@@ -14,7 +14,7 @@ and Instruction =
     | Unary of string * SpecificInstruction
     | Binary of string * SpecificInstruction * SpecificInstruction
     | If of SpecificInstruction * SpecificInstruction * SpecificInstruction
-    | IconCall of IconTypeName * SpecificInstruction array
+    | IconCall of IconTypeName * SpecificInstruction list
     | BaseIconParameter of int
 
 let DefaultTrapInstruction = (Guid.Empty, Trap)
@@ -23,7 +23,7 @@ let withEmptyID (instruction : Instruction) : SpecificInstruction = (Guid.Empty,
 
 type IconInstance =
     { TypeName : IconTypeName
-      Context : IconID array }
+      Context : IconID list }
 
 type IconType =
     { InstructionTree : SpecificInstruction
