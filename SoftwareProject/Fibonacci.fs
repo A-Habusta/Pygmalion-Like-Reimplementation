@@ -5,16 +5,16 @@ open Icons
 open Eval
 
 let fibonacciInstructionTree =
-    toEmpty (IconCall("fibonacciInternal", [| toEmpty (BaseIconParameter(0)); toEmpty (Constant(1)); toEmpty (Constant(1)) |]))
+    withEmptyID (IconCall("fibonacciInternal", [| withEmptyID (BaseIconParameter(0)); withEmptyID (Constant(1)); withEmptyID (Constant(1)) |]))
 
 // You don't have to do this, it's just a lot faster than using basic recursion
 let fibonacciInternalInstructionTree =
-    let addParameters = Binary("+", toEmpty (BaseIconParameter(1)), toEmpty (BaseIconParameter(2)))
-    let decrementCounter = Binary("-", toEmpty (BaseIconParameter(0)), toEmpty (Constant(1)))
-    toEmpty(
-        If ( toEmpty (Binary("=", toEmpty (BaseIconParameter(0)), toEmpty (Constant(0)))),
-        toEmpty (BaseIconParameter(1)),
-        toEmpty (IconCall("fibonacciInternal", [| toEmpty decrementCounter; toEmpty (BaseIconParameter(2)); toEmpty addParameters |])) ))
+    let addParameters = Binary("+", withEmptyID (BaseIconParameter(1)), withEmptyID (BaseIconParameter(2)))
+    let decrementCounter = Binary("-", withEmptyID (BaseIconParameter(0)), withEmptyID (Constant(1)))
+    withEmptyID(
+        If ( withEmptyID (Binary("=", withEmptyID (BaseIconParameter(0)), withEmptyID (Constant(0)))),
+        withEmptyID (BaseIconParameter(1)),
+        withEmptyID (IconCall("fibonacciInternal", [| withEmptyID decrementCounter; withEmptyID (BaseIconParameter(2)); withEmptyID addParameters |])) ))
 
 let fibonacciIconType = {
     InstructionTree = fibonacciInstructionTree

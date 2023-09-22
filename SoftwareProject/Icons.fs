@@ -19,7 +19,7 @@ and Instruction =
 
 let DefaultTrapInstruction = (Guid.Empty, Trap)
 
-let toEmpty (instruction : Instruction) : SpecificInstruction = (Guid.Empty, instruction)
+let withEmptyID (instruction : Instruction) : SpecificInstruction = (Guid.Empty, instruction)
 
 type IconInstance =
     { TypeName : IconTypeName

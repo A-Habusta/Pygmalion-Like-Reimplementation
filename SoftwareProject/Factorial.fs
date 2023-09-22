@@ -6,11 +6,11 @@ open Eval
 
 
 let factorialInstructionTree =
-    let recurse = IconCall("factorial", [|toEmpty (Binary("-", toEmpty (BaseIconParameter(0)), toEmpty (Constant(1))))|])
-    let condition = Binary("=", toEmpty (BaseIconParameter(0)), toEmpty (Constant(0)))
+    let recurse = IconCall("factorial", [|withEmptyID (Binary("-", withEmptyID (BaseIconParameter(0)), withEmptyID (Constant(1))))|])
+    let condition = Binary("=", withEmptyID (BaseIconParameter(0)), withEmptyID (Constant(0)))
     let trueBranch = Constant(1)
-    let falseBranch = Binary("*", toEmpty (BaseIconParameter(0)), toEmpty recurse)
-    toEmpty (If(toEmpty condition, toEmpty trueBranch, toEmpty falseBranch))
+    let falseBranch = Binary("*", withEmptyID (BaseIconParameter(0)), withEmptyID recurse)
+    withEmptyID (If(withEmptyID condition, withEmptyID trueBranch, withEmptyID falseBranch))
 
 let factorialIconType = {
     InstructionTree = factorialInstructionTree
