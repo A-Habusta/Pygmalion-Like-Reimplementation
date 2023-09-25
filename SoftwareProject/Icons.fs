@@ -2,49 +2,27 @@ module SoftwareProject.Icons
 
 open System
 
-type IconTypeName = string
+type CustomIconName = string
 type IconID = Guid
 
-// Data representation
-
-type SpecificInstruction = IconID * Instruction
-and Instruction =
+type SimpleInstruction =
     | Trap
     | Constant of int
-    | Unary of string * SpecificInstruction
-    | Binary of string * SpecificInstruction * SpecificInstruction
-    | If of SpecificInstruction * SpecificInstruction * SpecificInstruction
-    | IconCall of IconTypeName * SpecificInstruction list
     | BaseIconParameter of int
+    | LocalIconReference of IconID
 
-let DefaultTrapInstruction = (Guid.Empty, Trap)
+type TopLevelInstruction =
+    | TopLevelTrap
+    | Unary of string * SimpleInstruction
+    | Binary of string * SimpleInstruction * SimpleInstruction
+    | If of SimpleInstruction * SimpleInstruction * SimpleInstruction
+    | CallCustomIcon of CustomIconName * SimpleInstruction list
 
-let withEmptyID (instruction : Instruction) : SpecificInstruction = (Guid.Empty, instruction)
+type LocalIconMap = Map<IconID, TopLevelInstruction>
 
-type IconInstance =
-    { TypeName : IconTypeName
-      Context : IconID list }
+type CustomIcon =
+    { Instruction : TopLevelInstruction
+      ParameterCount : int
+      LocalIcons : LocalIconMap }
 
-type IconType =
-    { InstructionTree : SpecificInstruction
-      ParameterCount : int }
-
-
-type IconTypeLibrary = Map<IconTypeName, IconType>
-type IconInstanceLibrary = Map<IconID, IconInstance>
-
-let fetchIconFromTypeLibrary (library: IconTypeLibrary) name =
-    match library.TryGetValue(name) with
-    | true, icon -> icon
-    | false, _ -> failwith $"Icon type {name} not found"
-
-let addIconToTypeLibrary (library: IconTypeLibrary) name icon : IconTypeLibrary =
-    library.Add(name, icon)
-
-let fetchIconFromInstanceLibrary (library: IconInstanceLibrary) id =
-    match library.TryGetValue(id) with
-    | true, icon -> icon
-    | false, _ -> failwith "Icon not found"
-
-let addIconToInstanceLibrary (library: IconInstanceLibrary) id icon : IconInstanceLibrary =
-    library.Add(id, icon)
+type CustomIconMap = Map<CustomIconName, CustomIcon>

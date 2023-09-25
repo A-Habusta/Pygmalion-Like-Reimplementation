@@ -1,14 +1,9 @@
 module SoftwareProject.Eval
 
-open Utils
-open Icons
+open SoftwareProject.Icons
+open SoftwareProject.Utils
 
 exception TrapException of IconID
-
-type IconContext =
-    { TypeLibrary: IconTypeLibrary
-      EvaluatedParams: int list
-      ID: IconID }
 
 let evalUnary operator operand =
     match operator with
@@ -51,26 +46,33 @@ let getCorrectBinaryOperation operator =
     | "%" -> (%)
     | _ -> getCorrectCompareBinaryOperation operator
 
+type EvalContext =
+    { CustomIcons : CustomIconMap
+      LocalIconInstances : LocalIconMap
+      EvaluatedParams: int list
+      CurrentIconID : IconID }
 
-let rec eval (customIconContext : IconContext) (specificInstruction : SpecificInstruction) =
-    let boundEval = (eval customIconContext)
-    let id, instruction = specificInstruction
+let rec eval (context : EvalContext) (instruction : TopLevelInstruction) =
+    let boundChildrenEval = (simpleInstructionEval context)
     match instruction with
-    | Constant n -> n
-    | Trap -> raise(TrapException customIconContext.ID)
-    | Unary(operator, operand) -> evalUnary operator (boundEval operand)
+    | TopLevelTrap -> raise (TrapException context.CurrentIconID)
+    | Unary(operator, operand) -> evalUnary operator (boundChildrenEval operand)
     | Binary(operator, leftOperand, rightOperand) ->
         let operation = getCorrectBinaryOperation operator
-        operation (boundEval leftOperand) (boundEval rightOperand)
+        operation (boundChildrenEval leftOperand) (boundChildrenEval rightOperand)
     | If(cond, trueBranch, falseBranch) ->
-        let res = boundEval cond
-        if res = FalseValue then boundEval falseBranch
-        else boundEval trueBranch
-    | IconCall(typeName, parameters) ->
-        let evaluatedParameters = List.map boundEval parameters
-        let newContext = { customIconContext with
-                            EvaluatedParams = evaluatedParameters
-                            ID = id }
-        let nextInstruction = fetchIconFromTypeLibrary customIconContext.TypeLibrary typeName
-        eval newContext nextInstruction.InstructionTree
-    | BaseIconParameter index -> customIconContext.EvaluatedParams[index]
+        let res = boundChildrenEval cond
+        if res = FalseValue then boundChildrenEval falseBranch
+        else boundChildrenEval trueBranch
+    | CallCustomIcon(typeName, parameters) ->
+        let evaluatedParameters = List.map boundChildrenEval parameters
+        let newContext = { context with EvaluatedParams = evaluatedParameters }
+        let nextInstruction = context.CustomIcons[typeName]
+        eval newContext nextInstruction.Instruction
+
+and simpleInstructionEval (context : EvalContext) (instruction : SimpleInstruction) =
+    match instruction with
+    | Trap -> raise (TrapException context.CurrentIconID)
+    | Constant n -> n
+    | BaseIconParameter index -> context.EvaluatedParams[index]
+    | LocalIconReference id -> eval {context with CurrentIconID = id } context.LocalIconInstances[id]
