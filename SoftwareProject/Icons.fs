@@ -21,7 +21,7 @@ type TopLevelInstruction =
 type LocalIconMap = Map<IconID, TopLevelInstruction>
 
 type CustomIcon =
-    { Instruction : TopLevelInstruction
+    { MainIconID : IconID
       ParameterCount : int
       LocalIcons : LocalIconMap }
 

@@ -66,9 +66,13 @@ let rec eval (context : EvalContext) (instruction : TopLevelInstruction) =
         else boundChildrenEval trueBranch
     | CallCustomIcon(typeName, parameters) ->
         let evaluatedParameters = List.map boundChildrenEval parameters
-        let newContext = { context with EvaluatedParams = evaluatedParameters }
-        let nextInstruction = context.CustomIcons[typeName]
-        eval newContext nextInstruction.Instruction
+        let newIcon = context.CustomIcons[typeName]
+        let newContext = { context with
+                             LocalIconInstances = newIcon.LocalIcons
+                             EvaluatedParams = evaluatedParameters
+                             CurrentIconID = newIcon.MainIconID }
+        eval newContext newIcon.LocalIcons[newIcon.MainIconID]
+
 
 and simpleInstructionEval (context : EvalContext) (instruction : SimpleInstruction) =
     match instruction with
