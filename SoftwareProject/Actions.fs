@@ -27,9 +27,8 @@ let transformInstructionParameters transform (instruction : TopLevelInstruction)
     |> saveParametersInInstruction instruction
 
 let replaceParameter (position : ParameterPosition) newParameter instruction =
-    let transform (parameters : SimpleInstruction list) =
-        parameters
-        |> List.mapi (fun i param ->
+    let transform =
+        List.mapi (fun i param ->
             if i = position then newParameter
             else param )
     transformInstructionParameters transform instruction
@@ -44,9 +43,8 @@ let removeParameterFromLocalIcon localIconId position (localIcons : LocalIconMap
 
 let removeLocalIcon localIconID (localIcons : LocalIconMap) : LocalIconMap =
     let removeLocalIconCallsFromParameters localIconID (instruction : TopLevelInstruction) =
-        let transform parameters =
-            parameters
-            |> List.map (fun param ->
+        let transform =
+            List.map (fun param ->
                 match param with
                 | LocalIconReference iconID when iconID = localIconID -> Trap
                 | _ -> param )
