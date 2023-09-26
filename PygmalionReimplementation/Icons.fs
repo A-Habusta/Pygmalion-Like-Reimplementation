@@ -1,4 +1,4 @@
-module SoftwareProject.Icons
+module PygmalionReimplementation.Icons
 
 open System
 

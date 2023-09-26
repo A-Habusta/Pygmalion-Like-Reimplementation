@@ -1,7 +1,7 @@
-module SoftwareProject.Eval
+module PygmalionReimplementation.Eval
 
-open SoftwareProject.Icons
-open SoftwareProject.Utils
+open PygmalionReimplementation.Icons
+open PygmalionReimplementation.Utils
 
 exception TrapException of IconID
 

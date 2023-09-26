@@ -1,6 +1,6 @@
-module SoftwareProject.Actions
+module PygmalionReimplementation.Actions
 
-open SoftwareProject.Icons
+open PygmalionReimplementation.Icons
 
 type ParameterPosition = int
 

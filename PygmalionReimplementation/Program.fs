@@ -1,6 +1,6 @@
-﻿module SoftwareProject.Main
+﻿module PygmalionReimplementation.Main
 
-open SoftwareProject.Factorial
+open PygmalionReimplementation.Factorial
 
 let testFunction name funcA funcB start stop =
     let sequenceA = seq { for i in start..stop -> funcA i }

@@ -1,4 +1,4 @@
-module SoftwareProject.Utils
+module PygmalionReimplementation.Utils
 
 let FalseValue = 0
 let TrueValue = 1

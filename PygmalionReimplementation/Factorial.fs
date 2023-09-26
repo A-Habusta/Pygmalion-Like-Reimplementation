@@ -1,9 +1,9 @@
-module SoftwareProject.Factorial
+module PygmalionReimplementation.Factorial
 
 open System
-open SoftwareProject.Actions
-open SoftwareProject.Icons
-open SoftwareProject.Eval
+open PygmalionReimplementation.Actions
+open PygmalionReimplementation.Icons
+open PygmalionReimplementation.Eval
 
 let rec referenceFactorial n =
   if n = 0 then 1 else n * referenceFactorial (n - 1)

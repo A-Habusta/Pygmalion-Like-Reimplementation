@@ -1,6 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "SoftwareProject", "SoftwareProject.fsproj", "{A0EEF7A1-A379-4937-A36A-7C38271D016C}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PygmalionReimplementation", "PygmalionReimplementation.fsproj", "{A0EEF7A1-A379-4937-A36A-7C38271D016C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
