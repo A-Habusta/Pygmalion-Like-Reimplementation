@@ -2,7 +2,7 @@
   "private": true,
   "scripts": {
     "start": "webpack-dev-server",
-    "build": "webpack",
+    "build": "webpack"
   },
   "devDependencies": {
     "fable-compiler": "^2.13.0",
