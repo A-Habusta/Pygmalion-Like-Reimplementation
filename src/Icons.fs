@@ -32,7 +32,7 @@ let fetchLocalIcon (iconID : IconID) (iconCollection : LocalIconCollection) =
     | true, instruction -> Some instruction
     | false, _ -> None
 
-let saveLocalIcon (iconID : IconID) (instruction : TopLevelInstruction) (iconCollection : LocalIconCollection) =
+let saveLocalIcon (iconID : IconID) (iconCollection : LocalIconCollection) (instruction : TopLevelInstruction) =
     iconCollection.Add(iconID, instruction)
 
 let removeLocalIcon (iconID : IconID) (iconCollection : LocalIconCollection) =

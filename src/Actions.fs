@@ -38,7 +38,7 @@ let addParameterToLocalIcon localIconID position newParameter (localIcons : Loca
     | None -> failwithf "Icon %O not found" localIconID
     | Some instruction -> instruction
     |> replaceParameter position newParameter
-    |> fun newInstruction -> localIcons.Add (localIconID, newInstruction)
+    |> saveLocalIcon localIconID localIcons
 
 let removeParameterFromLocalIcon localIconId position (localIcons : LocalIconCollection) : LocalIconCollection =
     addParameterToLocalIcon localIconId position Trap localIcons
@@ -78,7 +78,7 @@ let applyAction (action : Action) (localIcons : LocalIconCollection) : LocalIcon
     match action with
     | ReplaceParameter (iconID, position, newParameter) -> addParameterToLocalIcon iconID position newParameter localIcons
     | RemoveParameter (iconID, position) -> removeParameterFromLocalIcon iconID position localIcons
-    | AddIcon (iconID, iconType) -> saveLocalIcon iconID (createIcon iconType) localIcons
+    | AddIcon (iconID, iconType) -> saveLocalIcon iconID localIcons (createIcon iconType)
     | RemoveIcon iconID -> removeLocalIcon iconID localIcons
 
 let applyActions (actions : Action list) (localIcons : LocalIconCollection) : LocalIconCollection =
