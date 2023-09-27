@@ -29,8 +29,8 @@ type CustomIconMap = Map<CustomIconName, CustomIcon>
 
 let fetchLocalIcon (iconID : IconID) (iconCollection : LocalIconCollection) =
     match iconCollection.TryGetValue iconID with
-    | true, instruction -> instruction
-    | false, _ -> failwithf "Icon ID %A not found" iconID
+    | true, instruction -> Some instruction
+    | false, _ -> None
 
 let saveLocalIcon (iconID : IconID) (instruction : TopLevelInstruction) (iconCollection : LocalIconCollection) =
     iconCollection.Add(iconID, instruction)
