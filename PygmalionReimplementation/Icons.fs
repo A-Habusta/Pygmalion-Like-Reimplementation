@@ -20,12 +20,12 @@ type TopLevelInstruction =
 
 type LocalIconCollection = Map<IconID, TopLevelInstruction>
 
-type CustomIcon =
+type CustomIconType =
     { MainIconID : IconID
       ParameterCount : int
       LocalIcons : LocalIconCollection }
 
-type CustomIconMap = Map<CustomIconName, CustomIcon>
+type CustomIconTypesMap = Map<CustomIconName, CustomIconType>
 
 let fetchLocalIcon (iconID : IconID) (iconCollection : LocalIconCollection) =
     match iconCollection.TryGetValue iconID with
