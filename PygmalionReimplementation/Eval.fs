@@ -47,7 +47,7 @@ let getCorrectBinaryOperation operator =
     | _ -> getCorrectCompareBinaryOperation operator
 
 type EvalContext =
-    { CustomIcons : CustomIconMap
+    { CustomIcons : CustomIconTypesMap
       LocalIconInstances : LocalIconCollection
       EvaluatedParams: int list
       CurrentIconID : IconID }

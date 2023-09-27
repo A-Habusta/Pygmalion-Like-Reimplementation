@@ -34,7 +34,9 @@ let replaceParameter (position : ParameterPosition) newParameter instruction =
     transformInstructionParameters transform instruction
 
 let addParameterToLocalIcon localIconID position newParameter (localIcons : LocalIconCollection) : LocalIconCollection =
-    fetchLocalIcon localIconID localIcons
+    match fetchLocalIcon localIconID localIcons with
+    | None -> failwithf "Icon %O not found" localIconID
+    | Some instruction -> instruction
     |> replaceParameter position newParameter
     |> fun newInstruction -> localIcons.Add (localIconID, newInstruction)
 
