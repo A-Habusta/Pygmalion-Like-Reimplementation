@@ -11,7 +11,11 @@
         <Compile Include="Eval.fs" />
         <Compile Include="Actions.fs" />
         <Compile Include="Factorial.fs" />
-        <Compile Include="Program.fs"/>
+        <Compile Include="Program.fs" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Fable.Core" Version="4.0.0" />
     </ItemGroup>
 
 </Project>
