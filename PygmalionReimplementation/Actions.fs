@@ -33,15 +33,15 @@ let replaceParameter (position : ParameterPosition) newParameter instruction =
             else param )
     transformInstructionParameters transform instruction
 
-let addParameterToLocalIcon localIconID position newParameter (localIcons : LocalIconMap) : LocalIconMap =
-    localIcons[localIconID]
+let addParameterToLocalIcon localIconID position newParameter (localIcons : LocalIconCollection) : LocalIconCollection =
+    fetchLocalIcon localIconID localIcons
     |> replaceParameter position newParameter
     |> fun newInstruction -> localIcons.Add (localIconID, newInstruction)
 
-let removeParameterFromLocalIcon localIconId position (localIcons : LocalIconMap) : LocalIconMap =
+let removeParameterFromLocalIcon localIconId position (localIcons : LocalIconCollection) : LocalIconCollection =
     addParameterToLocalIcon localIconId position Trap localIcons
 
-let removeLocalIcon localIconID (localIcons : LocalIconMap) : LocalIconMap =
+let removeLocalIcon localIconID (localIcons : LocalIconCollection) : LocalIconCollection =
     let removeLocalIconCallsFromParameters localIconID (instruction : TopLevelInstruction) =
         let transform =
             List.map (fun param ->
@@ -50,7 +50,7 @@ let removeLocalIcon localIconID (localIcons : LocalIconMap) : LocalIconMap =
                 | _ -> param )
         transformInstructionParameters transform instruction
 
-    localIcons.Remove localIconID
+    removeLocalIcon localIconID localIcons
     |> Map.map (fun _ -> removeLocalIconCallsFromParameters localIconID)
 
 type IconType =
@@ -72,12 +72,12 @@ type Action =
     | AddIcon of IconID * IconType
     | RemoveIcon of IconID
 
-let applyAction (action : Action) (localIcons : LocalIconMap) : LocalIconMap =
+let applyAction (action : Action) (localIcons : LocalIconCollection) : LocalIconCollection =
     match action with
     | ReplaceParameter (iconID, position, newParameter) -> addParameterToLocalIcon iconID position newParameter localIcons
     | RemoveParameter (iconID, position) -> removeParameterFromLocalIcon iconID position localIcons
-    | AddIcon (iconID, iconType) -> localIcons.Add (iconID, createIcon iconType)
+    | AddIcon (iconID, iconType) -> saveLocalIcon iconID (createIcon iconType) localIcons
     | RemoveIcon iconID -> removeLocalIcon iconID localIcons
 
-let applyActions (actions : Action list) (localIcons : LocalIconMap) : LocalIconMap =
+let applyActions (actions : Action list) (localIcons : LocalIconCollection) : LocalIconCollection =
     List.fold (fun localIcons action -> applyAction action localIcons) localIcons actions

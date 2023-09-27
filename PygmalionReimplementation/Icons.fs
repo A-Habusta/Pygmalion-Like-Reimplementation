@@ -18,11 +18,22 @@ type TopLevelInstruction =
     | If of SimpleInstruction * SimpleInstruction * SimpleInstruction
     | CallCustomIcon of CustomIconName * SimpleInstruction list
 
-type LocalIconMap = Map<IconID, TopLevelInstruction>
+type LocalIconCollection = Map<IconID, TopLevelInstruction>
 
 type CustomIcon =
     { MainIconID : IconID
       ParameterCount : int
-      LocalIcons : LocalIconMap }
+      LocalIcons : LocalIconCollection }
 
 type CustomIconMap = Map<CustomIconName, CustomIcon>
+
+let fetchLocalIcon (iconID : IconID) (iconCollection : LocalIconCollection) =
+    match iconCollection.TryGetValue iconID with
+    | true, instruction -> instruction
+    | false, _ -> failwithf "Icon ID %A not found" iconID
+
+let saveLocalIcon (iconID : IconID) (instruction : TopLevelInstruction) (iconCollection : LocalIconCollection) =
+    iconCollection.Add(iconID, instruction)
+
+let removeLocalIcon (iconID : IconID) (iconCollection : LocalIconCollection) =
+    iconCollection.Remove(iconID)
