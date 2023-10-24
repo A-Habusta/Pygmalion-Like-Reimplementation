@@ -2,7 +2,7 @@ const path = require("path")
 
 module.exports = {
     mode: "development",
-    entry: "./src/App.fsproj",
+    entry: "./src/PygmalionReimplementation.fsproj",
     devtool: "eval-source-map",
 
     devServer: {
