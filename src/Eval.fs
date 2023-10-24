@@ -47,13 +47,31 @@ let getCorrectBinaryOperation operator =
     | _ -> getCorrectCompareBinaryOperation operator
 
 type EvalContext =
-    { CustomIcons : CustomIconTypesMap
-      LocalIconInstances : LocalIconCollection
-      EvaluatedParams: int list
-      CurrentIconID : IconID }
+    { CustomIcons : Map<string, CustomIconType>
+      ExecutingCustomIcon : CustomIconType
+      CurrentIconID : IconID
+      Parameters : int list}
 
-let rec eval (context : EvalContext) (instruction : TopLevelInstruction) =
-    let boundChildrenEval = (simpleInstructionEval context)
+
+let getIconInstructionFromID (context : EvalContext) (id : IconID) =
+    context.ExecutingCustomIcon.SavedIcons[id].IconInstruction
+
+let getContextEntryPointInstruction (context : EvalContext) =
+    getIconInstructionFromID context context.ExecutingCustomIcon.EntryPointIcon
+
+
+let createContextForCustomIcon
+    (oldContext : EvalContext)
+    (typeName : string)
+    (parameters : int list) =
+        let newIcon = oldContext.CustomIcons[typeName]
+        { oldContext with
+            ExecutingCustomIcon = newIcon
+            CurrentIconID = newIcon.EntryPointIcon
+            Parameters = parameters }
+
+let rec eval (context : EvalContext) (instruction : IconInstruction) =
+    let boundChildrenEval = (instructionParamEval context)
     match instruction with
     | TopLevelTrap -> raise (TrapException context.CurrentIconID)
     | Unary(operator, operand) -> evalUnary operator (boundChildrenEval operand)
@@ -65,18 +83,16 @@ let rec eval (context : EvalContext) (instruction : TopLevelInstruction) =
         if res = FalseValue then boundChildrenEval falseBranch
         else boundChildrenEval trueBranch
     | CallCustomIcon(typeName, parameters) ->
-        let evaluatedParameters = List.map boundChildrenEval parameters
-        let newIcon = context.CustomIcons[typeName]
-        let newContext = { context with
-                             LocalIconInstances = newIcon.LocalIcons
-                             EvaluatedParams = evaluatedParameters
-                             CurrentIconID = newIcon.MainIconID }
-        eval newContext newIcon.LocalIcons[newIcon.MainIconID]
+        let newContext =
+            List.map (instructionParamEval context) parameters
+            |> createContextForCustomIcon context typeName
+        
+        eval newContext (getContextEntryPointInstruction newContext)
 
 
-and simpleInstructionEval (context : EvalContext) (instruction : SimpleInstruction) =
+and instructionParamEval (context : EvalContext) (instruction : IconInstructionParameter) =
     match instruction with
     | Trap -> raise (TrapException context.CurrentIconID)
     | Constant n -> n
-    | BaseIconParameter index -> context.EvaluatedParams[index]
-    | LocalIconReference id -> eval {context with CurrentIconID = id } context.LocalIconInstances[id]
+    | BaseIconParameter index -> context.Parameters[index]
+    | LocalIconInstructionReference id  -> eval {context with CurrentIconID = id } (getIconInstructionFromID context id)
