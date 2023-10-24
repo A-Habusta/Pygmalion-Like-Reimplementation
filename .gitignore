@@ -1,4 +1,6 @@
 bin
 obj
 node_modules
-.idea
+
+.fake
+.vscode/settings.json
