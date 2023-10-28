@@ -64,7 +64,6 @@ type DrawnIcon =
       IconInstruction : IconInstruction }
 
 type IconTable = Map<IconID, DrawnIcon>
-
 let createDrawnIcon x y iconType =
     { X = x
       Y = y
@@ -72,15 +71,8 @@ let createDrawnIcon x y iconType =
       IconType = iconType
       IconInstruction = createEmptyIconInstruction iconType }
 
-type IconAction =
-    | EvalIcon of target : IconID
-    | AddParameter of target : IconID * parameter : IconInstructionParameter * index : int
-    | AddIcon of IconID * IconType
-    | MoveIcon of IconID * x : int * y : int
-
 type CustomIconType =
     { ParameterCount : int
-      CreationActions : IconAction list
       SavedIcons : IconTable
       EntryPointIcon : IconID }
 
