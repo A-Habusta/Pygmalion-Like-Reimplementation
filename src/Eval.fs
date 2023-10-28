@@ -47,7 +47,7 @@ let getCorrectBinaryOperation operator =
     | _ -> getCorrectCompareBinaryOperation operator
 
 type EvalContext =
-    { CustomIcons : Map<string, CustomIconType>
+    { CustomIcons : CustomIcons
       ExecutingCustomIcon : CustomIconType
       CurrentIconID : IconID
       Parameters : int list}
@@ -86,7 +86,6 @@ let rec eval (context : EvalContext) (instruction : IconInstruction) =
         let newContext =
             List.map (instructionParamEval context) parameters
             |> createContextForCustomIcon context typeName
-        
         eval newContext (getContextEntryPointInstruction newContext)
 
 

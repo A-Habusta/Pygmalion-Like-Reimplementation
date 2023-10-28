@@ -47,7 +47,7 @@ type IconType =
     | BaseUnaryIcon of operation : string
     | BaseBinaryIcon of operation : string
     | BaseIfIcon
-    | CustomIcon of customIconName : string * int
+    | CustomIcon of customIconName : string * parameterCount : int
 
 let createEmptyIconInstruction (iconType : IconType) =
     match iconType with
@@ -83,3 +83,5 @@ type CustomIconType =
       CreationActions : IconAction list
       SavedIcons : IconTable
       EntryPointIcon : IconID }
+
+type CustomIcons = Map<string, CustomIconType>
