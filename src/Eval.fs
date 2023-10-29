@@ -50,8 +50,7 @@ type EvalContext =
     { CustomIcons : CustomIcons
       ExecutingCustomIcon : CustomIconType
       CurrentIconID : IconID
-      Parameters : int list}
-
+      Parameters : int list }
 
 let getIconInstructionFromID (context : EvalContext) (id : IconID) =
     context.ExecutingCustomIcon.SavedIcons[id].IconInstruction
