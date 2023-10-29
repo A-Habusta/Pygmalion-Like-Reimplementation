@@ -1,6 +1,8 @@
 module PygmalionReimplementation.Icons
 
-type IconID = int
+open System
+
+type IconID = Guid
 
 type IconInstructionParameter =
     | Trap
@@ -14,6 +16,8 @@ type IconInstruction =
     | Binary of operator : string * IconInstructionParameter * IconInstructionParameter
     | If of IconInstructionParameter * IconInstructionParameter * IconInstructionParameter
     | CallCustomIcon of customIconName : string * IconInstructionParameter list
+
+let newIconID () = Guid.NewGuid()
 
 let transformInstructionParameters transform (instruction : IconInstruction) =
     let extractInstructionParameters instruction =
@@ -59,7 +63,7 @@ let createEmptyIconInstruction (iconType : IconType) =
 type DrawnIcon =
     { X : int
       Y : int
-      Result : Option<int>
+      Result : int option
       IconType : IconType
       IconInstruction : IconInstruction }
 
