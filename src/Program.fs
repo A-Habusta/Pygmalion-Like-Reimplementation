@@ -70,14 +70,16 @@ let init () : State =
       MasterCustomIconName = dummyCustomIconName
       MasterCustomIconParameters = [] }
 
+let mutable random = new Random()
+
 let update (message : Message) (state : State) : State =
     match message with
     | EvaluateIcon id ->
         evalIconFromState state id
     | AddNewIcon iconType ->
         // Placeholder coordinates
-        let newX = Random.Shared.Next(100, 500)
-        let newY = Random.Shared.Next(100, 500)
+        let newX = random.Next(100, 500)
+        let newY = random.Next(100, 500)
         stateWithNewIcon state (newIconID ()) (createDrawnIcon newX newY iconType)
     | RemoveIcon id ->
         getIconTableFromState state
@@ -91,7 +93,14 @@ let update (message : Message) (state : State) : State =
         stateWithNewIcon state targetID newIcon
 
 let renderIcon (icon : DrawnIcon) (dispatch : Message -> unit) : ReactElement =
-    raise <| NotImplementedException()
+    Html.div [
+        prop.style [
+            style.position.absolute
+            style.left(length.px icon.X)
+            style.top(length.px icon.Y)
+            style.border(length.px 1, borderStyle.solid, "black")
+        ]
+    ]
 
 let renderIconInstances (state : State) (dispatch : Message -> unit) : ReactElement list =
     getIconTableFromState state
@@ -165,7 +174,6 @@ let render (state : State) (dispatch : Message -> unit) : ReactElement =
             Html.div [
                 prop.id "custom-icon-spawners"
                 prop.children [ renderCustomIconSpawners state dispatch ]
-
             ]
             Html.div [
                 prop.id "icon-canvas"
@@ -175,5 +183,5 @@ let render (state : State) (dispatch : Message -> unit) : ReactElement =
     ]
 
 Program.mkSimple init update render
-    |> Program.withReactSynchronous "elmish-app"
+    |> Program.withReactSynchronous "root"
     |> Program.run

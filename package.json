@@ -1,15 +1,20 @@
 {
-  "private": true,
+  "name": "pygmalion-reimplementation",
+  "version": "1.0.0",
+  "description": "TODO",
+  "type": "module",
+  "main": "src/Program.fs.js",
   "scripts": {
-    "start": "webpack-dev-server",
-    "build": "webpack"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "repository": {
+    "type": "git",
+    "url": "https:https://github.com/A-Habusta/Pygmalion-Like-Reimplementation/"
+  },
+  "author": "Adrián Habušta",
+  "license": "MIT",
   "devDependencies": {
-    "fable-compiler": "^2.13.0",
-    "fable-loader": "^2.1.9",
-    "webpack": "^5.88.2",
-    "webpack-cli": "^5.1.4",
-    "webpack-dev-server": "^4.15.1"
+    "vite": "^4.5.0"
   },
   "dependencies": {
     "react": "^18.2.0",

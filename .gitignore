@@ -1,6 +1,9 @@
 bin
 obj
 node_modules
+fable_modules
+
+*.fs.js
+.vscode/settings.json
 
 .fake
-.vscode/settings.json
