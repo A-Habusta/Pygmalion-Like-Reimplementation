@@ -3,7 +3,7 @@ module PygmalionReimplementation.Eval
 open PygmalionReimplementation.Icons
 open PygmalionReimplementation.Utils
 
-exception TrapException of IconID
+exception TrapException of customIconType : string * IconID
 
 let evalUnary operator operand =
     match operator with
@@ -58,6 +58,10 @@ let getIconInstructionFromID (context : EvalContext) (id : IconID) =
 let getContextEntryPointInstruction (context : EvalContext) =
     getIconInstructionFromID context context.ExecutingCustomIcon.EntryPointIcon
 
+let trap (context : EvalContext) =
+    let currentCustomIconTypeName = Map.findKey (fun _ value -> value = context.ExecutingCustomIcon) context.CustomIcons
+    raise (TrapException(currentCustomIconTypeName, context.CurrentIconID))
+
 
 let createContextForCustomIcon
     (oldContext : EvalContext)
@@ -72,7 +76,7 @@ let createContextForCustomIcon
 let rec eval (context : EvalContext) (instruction : IconInstruction) =
     let boundChildrenEval = (instructionParamEval context)
     match instruction with
-    | TopLevelTrap -> raise (TrapException context.CurrentIconID)
+    | TopLevelTrap -> trap context
     | Unary(operator, operand) -> evalUnary operator (boundChildrenEval operand)
     | Binary(operator, leftOperand, rightOperand) ->
         let operation = getCorrectBinaryOperation operator
@@ -90,7 +94,7 @@ let rec eval (context : EvalContext) (instruction : IconInstruction) =
 
 and instructionParamEval (context : EvalContext) (instruction : IconInstructionParameter) =
     match instruction with
-    | Trap -> raise (TrapException context.CurrentIconID)
+    | Trap -> trap context
     | Constant n -> n
     | BaseIconParameter index -> context.Parameters[index].Value
     | LocalIconInstructionReference id  -> eval {context with CurrentIconID = id } (getIconInstructionFromID context id)
