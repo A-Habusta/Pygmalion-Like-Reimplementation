@@ -3,7 +3,6 @@ module PygmalionReimplementation.Eval
 open PygmalionReimplementation.Icons
 open PygmalionReimplementation.Utils
 
-exception TrapException of customIconType : string * IconID
 
 let evalUnary operator operand =
     match operator with
@@ -58,10 +57,10 @@ let getIconInstructionFromID (context : EvalContext) (id : IconID) =
 let getContextEntryPointInstruction (context : EvalContext) =
     getIconInstructionFromID context context.ExecutingCustomIcon.EntryPointIcon
 
-let trap (context : EvalContext) =
-    let currentCustomIconTypeName = Map.findKey (fun _ value -> value = context.ExecutingCustomIcon) context.CustomIcons
-    raise (TrapException(currentCustomIconTypeName, context.CurrentIconID))
+exception TrapException of EvalContext
 
+let trap (context : EvalContext) =
+    raise (TrapException context)
 
 let createContextForCustomIcon
     (oldContext : EvalContext)
@@ -90,7 +89,6 @@ let rec eval (context : EvalContext) (instruction : IconInstruction) =
             List.map (fun parameter -> lazy instructionParamEval context parameter) parameters
             |> createContextForCustomIcon context typeName
         eval newContext (getContextEntryPointInstruction newContext)
-
 
 and instructionParamEval (context : EvalContext) (instruction : IconInstructionParameter) =
     match instruction with
