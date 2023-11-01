@@ -50,7 +50,7 @@ type EvalContext =
     { CustomIcons : CustomIcons
       ExecutingCustomIcon : CustomIconType
       CurrentIconID : IconID
-      Parameters : int list }
+      Parameters : Lazy<int> list }
 
 let getIconInstructionFromID (context : EvalContext) (id : IconID) =
     context.ExecutingCustomIcon.SavedIcons[id].IconInstruction
@@ -62,7 +62,7 @@ let getContextEntryPointInstruction (context : EvalContext) =
 let createContextForCustomIcon
     (oldContext : EvalContext)
     (typeName : string)
-    (parameters : int list) =
+    (parameters : Lazy<int> list) =
         let newIcon = oldContext.CustomIcons[typeName]
         { oldContext with
             ExecutingCustomIcon = newIcon
@@ -83,7 +83,7 @@ let rec eval (context : EvalContext) (instruction : IconInstruction) =
         else boundChildrenEval trueBranch
     | CallCustomIcon(typeName, parameters) ->
         let newContext =
-            List.map (instructionParamEval context) parameters
+            List.map (fun parameter -> lazy instructionParamEval context parameter) parameters
             |> createContextForCustomIcon context typeName
         eval newContext (getContextEntryPointInstruction newContext)
 
@@ -92,5 +92,5 @@ and instructionParamEval (context : EvalContext) (instruction : IconInstructionP
     match instruction with
     | Trap -> raise (TrapException context.CurrentIconID)
     | Constant n -> n
-    | BaseIconParameter index -> context.Parameters[index]
+    | BaseIconParameter index -> context.Parameters[index].Value
     | LocalIconInstructionReference id  -> eval {context with CurrentIconID = id } (getIconInstructionFromID context id)
