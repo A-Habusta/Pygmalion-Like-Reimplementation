@@ -1,21 +1,20 @@
 ﻿module PygmalionReimplementation.Main
 
 open System
-open Fable
 open Browser
 open Elmish
-open Fable.React
 open Elmish.React
+open Feliz
 
 open PygmalionReimplementation.Eval
 open PygmalionReimplementation.Icons
 
 type State =
     { HeldIcon : Option<IconID>
-      HeldParameter : Option<IconInstructionParameter> 
+      HeldParameter : Option<IconInstructionParameter>
       CustomIcons : CustomIcons
       MasterCustomIconName : string
-      MasterCustomIconParameters : int list }
+      MasterCustomIconParameters : Lazy<int> list }
 
 type Message =
     | EvaluateIcon of IconID
@@ -54,7 +53,7 @@ let removeIconReferences (currentIcon : DrawnIcon) (targetID : IconID) : DrawnIc
                 | icon -> icon )
 
     { currentIcon with IconInstruction = transformInstructionParameters removeIconReferencesFromInstruction currentIcon.IconInstruction }
-    
+
 let dummyCustomIconName = "dummy"
 let dummyCustomIcon : CustomIconType =
     { ParameterCount = 0
@@ -91,9 +90,89 @@ let update (message : Message) (state : State) : State =
             { icon with IconInstruction = replaceParameter position Trap icon.IconInstruction }
         stateWithNewIcon state targetID newIcon
 
-let render (state : State) (dispatch : Message -> unit) : ReactElement =
-    failwith "not implemented"
+let renderIcon (icon : DrawnIcon) (dispatch : Message -> unit) : ReactElement =
+    raise <| NotImplementedException()
 
+let renderIconInstances (state : State) (dispatch : Message -> unit) : ReactElement list =
+    getIconTableFromState state
+    |> Map.toSeq
+    |> Seq.map (fun (_, icon) -> renderIcon icon dispatch)
+    |> Seq.toList
+
+let defaultBinaryOperators =
+    [ "+"; "-"; "*"; "/"; "%"; "=="; "!="; "<"; "<="; ">"; ">="; "&&"; "||"; ]
+let defaultUnaryOperators =
+    [ "+"; "-"; "!" ]
+
+let renderSpawner (text : string) (iconType : IconType) (dispatch : Message -> unit) : ReactElement =
+    Html.div [
+        Html.button [
+            prop.text text
+            prop.onClick (fun _ -> dispatch (AddNewIcon iconType))
+        ]
+    ]
+
+let renderDefaultIconSpawners (dispatch : Message -> unit) : ReactElement =
+    let spawnerList (typeConstructor : string -> IconType)=
+        List.map
+            (fun text -> Html.li [ renderSpawner text (typeConstructor text) dispatch ])
+
+    Html.div [
+        Html.h2 "Default Icons"
+        Html.ul (
+            List.concat [
+                spawnerList (fun text -> BaseUnaryIcon text) defaultUnaryOperators
+                spawnerList (fun text -> BaseBinaryIcon text) defaultBinaryOperators
+                [ Html.li [ renderSpawner "If" BaseIfIcon dispatch ] ]
+            ]
+        )
+    ]
+
+let renderCustomIconSpawners (state : State) (dispatch : Message -> unit) : ReactElement =
+    let customIconSpawner (name : string) (iconType : CustomIconType) : ReactElement =
+        Html.div [
+            prop.className "custom-icon-spawner"
+            prop.children [
+                Html.button [
+                    prop.text name
+                    prop.onClick (fun _ -> dispatch (AddNewIcon (CustomIcon(name, iconType.ParameterCount))))
+                ]
+                Html.button [
+                    prop.text "Edit"
+                    //prop.onClick ...
+                ]
+            ]
+        ]
+
+    Html.div [
+        Html.h2 "Custom Icons"
+        Html.ul (
+            state.CustomIcons
+            |> Map.toSeq
+            |> Seq.map (fun (name, iconType) -> customIconSpawner name iconType)
+            |> Seq.toList
+        )
+    ]
+
+let render (state : State) (dispatch : Message -> unit) : ReactElement =
+    Html.div [
+        prop.style [ style.position.relative ]
+        prop.children [
+            Html.div [
+                prop.id "default-icon-spawners"
+                prop.children [ renderDefaultIconSpawners dispatch ]
+            ]
+            Html.div [
+                prop.id "custom-icon-spawners"
+                prop.children [ renderCustomIconSpawners state dispatch ]
+
+            ]
+            Html.div [
+                prop.id "icon-canvas"
+                prop.children (renderIconInstances state dispatch)
+            ]
+        ]
+    ]
 
 Program.mkSimple init update render
     |> Program.withReactSynchronous "elmish-app"
