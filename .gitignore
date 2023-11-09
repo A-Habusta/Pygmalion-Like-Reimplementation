@@ -3,7 +3,7 @@ obj
 node_modules
 fable_modules
 
-*.fs.js
+*.js
 .vscode/settings.json
 
 .fake
