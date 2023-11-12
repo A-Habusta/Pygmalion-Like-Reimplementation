@@ -9,18 +9,32 @@ open Feliz
 open PygmalionReimplementation.Eval
 open PygmalionReimplementation.Icons
 
+type MovableObject =
+    | NoObject
+    | ExistingIcon of IconID
+    | NewIcon of IconType
+    | Parameter of IconInstructionParameter
+
+type MovableObjectTarget =
+    | Position of x : int * y : int
+    | IconParameter of target : IconID * position : int
+
 type State =
-    { HeldIcon : Option<IconID>
-      HeldParameter : Option<IconInstructionParameter>
+    { HeldObject : MovableObject
       CustomIcons : CustomIcons
       MasterCustomIconName : string
       MasterCustomIconParameters : Lazy<int> list }
 
 type Message =
     | EvaluateIcon of IconID
-    | AddNewIcon of IconType
+    | CreateIcon of IconType
+    | PickupIcon of IconID
+    | PickupIconParameter of IconInstructionParameter
+    | PlacePickup of MovableObjectTarget
+    | CancelPickup
     | RemoveIcon of IconID
     | RemoveIconParameter of target : IconID * position : int
+    | NotImplemented of message : string
 
 let private getIconTableFromState (state : State) =
     state.CustomIcons[state.MasterCustomIconName].SavedIcons
@@ -54,6 +68,7 @@ let removeIconReferences (currentIcon : DrawnIcon) (targetID : IconID) : DrawnIc
 
     { currentIcon with IconInstruction = transformInstructionParameters removeIconReferencesFromInstruction currentIcon.IconInstruction }
 
+
 let dummyCustomIconName = "dummy"
 let dummyCustomIcon : CustomIconType =
     { ParameterCount = 0
@@ -64,8 +79,7 @@ let initialCustomIcons : CustomIcons =
     Map.empty |> Map.add dummyCustomIconName dummyCustomIcon
 
 let init () : State =
-    { HeldIcon = None
-      HeldParameter = None
+    { HeldObject = NoObject
       CustomIcons = initialCustomIcons
       MasterCustomIconName = dummyCustomIconName
       MasterCustomIconParameters = [] }
@@ -76,11 +90,38 @@ let update (message : Message) (state : State) : State =
     match message with
     | EvaluateIcon id ->
         evalIconFromState state id
-    | AddNewIcon iconType ->
-        // Placeholder coordinates
-        let newX = random.Next(100, 500)
-        let newY = random.Next(100, 500)
-        stateWithNewIcon state (newIconID ()) (createDrawnIcon newX newY iconType)
+    | CreateIcon iconType ->
+        {state with HeldObject = NewIcon iconType}
+    | PickupIcon id ->
+        {state with HeldObject = ExistingIcon id}
+    | PickupIconParameter parameter ->
+        {state with HeldObject = Parameter parameter}
+    | CancelPickup ->
+        {state with HeldObject = NoObject}
+    | PlacePickup targetLocation ->
+        match state.HeldObject with
+        | NoObject -> failwith "Tried to place object without holding any"
+        | NewIcon newIconType ->
+            match targetLocation with
+            | Position (x, y) ->
+                createDrawnIcon x y newIconType
+                |> stateWithNewIcon state (newIconID ())
+            | _ -> failwith "Tried to place new icon on invalid target"
+        | ExistingIcon iconID ->
+            match targetLocation with
+            | Position (x, y) ->
+                let icon = getIconFromState state iconID
+                let newIcon = { icon with X = x; Y = y }
+                stateWithNewIcon state iconID newIcon
+            | _ -> failwith "Tried to place existing icon on invalid target"
+        | Parameter parameter ->
+            match targetLocation with
+            | IconParameter (targetID, position) ->
+                let icon = getIconFromState state targetID
+                let newIcon =
+                    { icon with IconInstruction = replaceParameter position parameter icon.IconInstruction }
+                stateWithNewIcon state targetID newIcon
+            | _ -> failwith "Tried to place parameter on invalid target"
     | RemoveIcon id ->
         getIconTableFromState state
         |> Map.remove id
@@ -91,6 +132,7 @@ let update (message : Message) (state : State) : State =
         let newIcon =
             { icon with IconInstruction = replaceParameter position Trap icon.IconInstruction }
         stateWithNewIcon state targetID newIcon
+    | NotImplemented message -> failwith message
 
 let renderIcon (icon : DrawnIcon) (dispatch : Message -> unit) : ReactElement =
     Html.div [
@@ -99,6 +141,8 @@ let renderIcon (icon : DrawnIcon) (dispatch : Message -> unit) : ReactElement =
             style.left(length.px icon.X)
             style.top(length.px icon.Y)
             style.border(length.px 1, borderStyle.solid, "black")
+            style.width (length.px 10)
+            style.height (length.px 10)
         ]
     ]
 
@@ -117,7 +161,7 @@ let renderSpawner (text : string) (iconType : IconType) (dispatch : Message -> u
     Html.div [
         Html.button [
             prop.text text
-            prop.onClick (fun _ -> dispatch (AddNewIcon iconType))
+            prop.onClick (fun _ -> dispatch (CreateIcon iconType))
         ]
     ]
 
@@ -142,13 +186,10 @@ let renderCustomIconSpawners (state : State) (dispatch : Message -> unit) : Reac
         Html.div [
             prop.className "custom-icon-spawner"
             prop.children [
-                Html.button [
-                    prop.text name
-                    prop.onClick (fun _ -> dispatch (AddNewIcon (CustomIcon(name, iconType.ParameterCount))))
-                ]
+                renderSpawner name (CustomIcon(name, iconType.ParameterCount)) dispatch
                 Html.button [
                     prop.text "Edit"
-                    //prop.onClick ...
+                    prop.onClick (fun _ -> dispatch (NotImplemented "Editing custom icons is not yet implemented"))
                 ]
             ]
         ]
@@ -163,10 +204,44 @@ let renderCustomIconSpawners (state : State) (dispatch : Message -> unit) : Reac
         )
     ]
 
+let renderHeldObject (state : State) =
+    let heldObjectToString =
+        let object = state.HeldObject
+        match object with
+        | NewIcon iconType -> sprintf "%A" iconType
+        | Parameter parameter ->
+            match parameter with
+            | LocalIconInstructionReference id ->
+                let icon = getIconFromState state id
+                match icon.Result with
+                | Some result -> sprintf "%A" result
+                | None -> "?"
+            | BaseIconParameter position ->
+                let func = state.MasterCustomIconParameters[position]
+                match func.IsValueCreated with
+                | true -> sprintf "%A" func.Value
+                | false -> "?"
+            | Constant value -> sprintf "%A" value
+            | Trap -> "Trap"
+        | _ -> String.Empty
+
+    Html.div [
+        prop.style [
+            style.position.absolute
+            style.left(length.px 500) // TODO: Follow actual mouse
+            style.top(length.px 500)
+        ]
+        prop.text heldObjectToString
+    ]
+
 let render (state : State) (dispatch : Message -> unit) : ReactElement =
     Html.div [
         prop.style [ style.position.relative ]
         prop.children [
+            Html.div [
+                prop.id "cursor-object"
+                prop.children [ renderHeldObject state ]
+            ]
             Html.div [
                 prop.id "default-icon-spawners"
                 prop.children [ renderDefaultIconSpawners dispatch ]
