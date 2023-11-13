@@ -34,6 +34,7 @@ type Message =
     | CancelPickup
     | RemoveIcon of IconID
     | RemoveIconParameter of target : IconID * position : int
+    | NewParamText of text : string * position : int * targetIcon : IconID
     | NotImplemented of message : string
 
 let private getIconTableFromState (state : State) =
@@ -66,7 +67,9 @@ let removeIconReferences (currentIcon : DrawnIcon) (targetID : IconID) : DrawnIc
                 | LocalIconInstructionReference id when id = targetID -> Trap
                 | icon -> icon )
 
-    { currentIcon with IconInstruction = transformInstructionParameters removeIconReferencesFromInstruction currentIcon.IconInstruction }
+    { currentIcon with
+        IconInstruction = transformInstructionParameters removeIconReferencesFromInstruction currentIcon.IconInstruction
+        Result = None }
 
 
 let dummyCustomIconName = "dummy"
@@ -91,6 +94,7 @@ let update (message : Message) (state : State) : State =
         try
             evalIconFromState state id
         with TrapException e ->
+            printf "Trap!"
             state
 
     | CreateIcon iconType ->
@@ -109,14 +113,14 @@ let update (message : Message) (state : State) : State =
             | Position (x, y) ->
                 createDrawnIcon x y newIconType
                 |> stateWithNewIcon state (newIconID ())
-            | _ -> failwith "Tried to place new icon on invalid target"
+            | _ -> state
         | ExistingIcon iconID ->
             match targetLocation with
             | Position (x, y) ->
                 let icon = getIconFromState state iconID
                 let newIcon = { icon with X = x; Y = y }
                 stateWithNewIcon state iconID newIcon
-            | _ -> failwith "Tried to place existing icon on invalid target"
+            | _ -> state
         | Parameter parameter ->
             match targetLocation with
             | IconParameter (targetID, position) ->
@@ -124,7 +128,7 @@ let update (message : Message) (state : State) : State =
                 let newIcon =
                     { icon with IconInstruction = replaceParameter position parameter icon.IconInstruction }
                 stateWithNewIcon state targetID newIcon
-            | _ -> failwith "Tried to place parameter on invalid target"
+            | _ -> state
     | RemoveIcon id ->
         getIconTableFromState state
         |> Map.remove id
@@ -135,6 +139,19 @@ let update (message : Message) (state : State) : State =
         let newIcon =
             { icon with IconInstruction = replaceParameter position Trap icon.IconInstruction }
         stateWithNewIcon state targetID newIcon
+    | NewParamText (text, position, targetIcon) ->
+        let icon = getIconFromState state targetIcon
+        if String.IsNullOrWhiteSpace text then
+            let newIcon =
+                { icon with IconInstruction = replaceParameter position Trap icon.IconInstruction }
+            stateWithNewIcon state targetIcon newIcon
+        else
+            match Int32.TryParse text with
+                | false, _ -> state
+                | true, result ->
+                    let newIcon =
+                        { icon with IconInstruction = replaceParameter position (Constant result) icon.IconInstruction }
+                    stateWithNewIcon state targetIcon newIcon
     | NotImplemented message ->
         printf "%s" message
         state
@@ -144,29 +161,94 @@ let stateIsHoldingObject (state : State) =
     | NoObject -> false
     | _ -> true
 
-let renderIcon (iconID : IconID) (icon : DrawnIcon) (dispatch : Message -> unit) : ReactElement =
+let renderIconDecorations (state : State) (iconID : IconID) (dispatch : Message -> unit) =
+    let icon = getIconFromState state iconID
+    let nothingHeld = not <| stateIsHoldingObject state
+    let drawParam (index : int) (parameter : IconInstructionParameter) : ReactElement =
+        let paramToString =
+            match parameter with
+            | LocalIconInstructionReference id ->
+                let icon = getIconFromState state id
+                match icon.Result with
+                | Some result -> sprintf "%A" result
+                | None -> "?"
+            | BaseIconParameter position ->
+                let func = state.MasterCustomIconParameters[position]
+                match func.IsValueCreated with
+                | true -> sprintf "%A" func.Value
+                | false -> "?"
+            | Constant value -> sprintf "%A" value
+            | Trap -> String.Empty
+        let writeable =
+            match parameter with
+            | LocalIconInstructionReference id ->
+                let icon = getIconFromState state id
+                icon.Result = None
+            | _ -> true
+        Html.input [
+            prop.style [
+                style.position.relative
+                style.top (length.px 5)
+                style.left (length.px (index * 10 + 5))
+            ]
+            prop.onChange (fun text ->
+                if writeable && nothingHeld then
+                    dispatch (NewParamText(text, index, iconID)))
+            prop.onContextMenu (fun e ->
+                e.preventDefault()
+                e.stopPropagation()
+                dispatch (RemoveIconParameter (iconID, index)) )
+            prop.onClick (fun e ->
+                e.preventDefault()
+                e.stopPropagation()
+                if not <| nothingHeld then
+                    dispatch (PlacePickup (IconParameter (iconID, index)))  )
+            prop.type' "number"
+            prop.placeholder paramToString
+        ]
+    Html.div ( extractInstructionParameters icon.IconInstruction
+               |> List.mapi drawParam )
+
+
+let renderIcon (state : State) (iconID : IconID) (dispatch : Message -> unit) : ReactElement =
+    let icon = getIconFromState state iconID
     Html.div [
         prop.style [
             style.position.absolute
             style.left (length.px icon.X)
             style.top (length.px icon.Y)
             style.border (length.px 1, borderStyle.solid, "black")
-            style.width (length.px 10)
-            style.height (length.px 10)
         ]
-        prop.onContextMenu (fun e ->
-            e.preventDefault()
-            dispatch (RemoveIcon iconID) )
+
+        if not <| stateIsHoldingObject state then
+            prop.onContextMenu (fun e ->
+                e.preventDefault()
+                e.stopPropagation()
+                dispatch (RemoveIcon iconID) )
+            prop.onClick (fun e ->
+                dispatch (PickupIcon iconID) )
+            prop.onMouseDown (fun e ->
+                if e.button = 1 then
+                    if icon.Result = None then
+                        dispatch (EvaluateIcon iconID)
+                    else
+                        dispatch (PickupIconParameter (LocalIconInstructionReference iconID)))
+
+
+        if icon.Result = None then
+            prop.children [ (renderIconDecorations state iconID dispatch) ]
+        else
+            prop.text (sprintf "%A" icon.Result.Value)
     ]
 
 let renderIconInstances (state : State) (dispatch : Message -> unit) : ReactElement list =
     getIconTableFromState state
     |> Map.toSeq
-    |> Seq.map (fun (id, icon) -> renderIcon id icon dispatch)
+    |> Seq.map (fun (id, icon) -> renderIcon state id dispatch)
     |> Seq.toList
 
 let defaultBinaryOperators =
-    [ "+"; "-"; "*"; "/"; "%"; "=="; "!="; "<"; "<="; ">"; ">="; "&&"; "||"; ]
+    [ "+"; "-"; "*"; "/"; "%"; "="; "<>"; "<"; "<="; ">"; ">="; "&&"; "||"; ]
 let defaultUnaryOperators =
     [ "+"; "-"; "!" ]
 
@@ -236,6 +318,7 @@ let renderHeldObject (state : State) =
                 | false -> "?"
             | Constant value -> sprintf "%A" value
             | Trap -> "Trap"
+        | ExistingIcon _ -> "Moving existing icon"
         | _ -> String.Empty
 
     Html.p [
@@ -251,7 +334,7 @@ let render (state : State) (dispatch : Message -> unit) : ReactElement =
                 ["default-icon-spawners"; "toolbar"; "custom-icon-spawners"]
             ]
             style.gridTemplateColumns [ length.auto ; length.percent 80; length.auto ]
-            style.gridTemplateRows [ length.percent 95 ; length.auto ]
+            style.gridTemplateRows [ length.percent 95; length.auto ]
         ]
         prop.children [
             Html.div [
@@ -285,8 +368,9 @@ let render (state : State) (dispatch : Message -> unit) : ReactElement =
                 ]
                 prop.id "icon-canvas"
                 prop.children (renderIconInstances state dispatch)
-                prop.onClick (fun e ->
-                    dispatch (PlacePickup (Position (int e.clientX, int e.clientY))))
+                if stateIsHoldingObject state then
+                    prop.onClick (fun e ->
+                        dispatch (PlacePickup (Position (int e.clientX, int e.clientY))))
             ]
         ]
 
