@@ -84,12 +84,15 @@ let init () : State =
       MasterCustomIconName = dummyCustomIconName
       MasterCustomIconParameters = [] }
 
-let mutable random = new Random()
-
 let update (message : Message) (state : State) : State =
     match message with
     | EvaluateIcon id ->
-        evalIconFromState state id
+        // TODO: Add error handling
+        try
+            evalIconFromState state id
+        with TrapException e ->
+            state
+
     | CreateIcon iconType ->
         {state with HeldObject = NewIcon iconType}
     | PickupIcon id ->
@@ -132,24 +135,34 @@ let update (message : Message) (state : State) : State =
         let newIcon =
             { icon with IconInstruction = replaceParameter position Trap icon.IconInstruction }
         stateWithNewIcon state targetID newIcon
-    | NotImplemented message -> failwith message
+    | NotImplemented message ->
+        printf "%s" message
+        state
 
-let renderIcon (icon : DrawnIcon) (dispatch : Message -> unit) : ReactElement =
+let stateIsHoldingObject (state : State) =
+    match state.HeldObject with
+    | NoObject -> false
+    | _ -> true
+
+let renderIcon (iconID : IconID) (icon : DrawnIcon) (dispatch : Message -> unit) : ReactElement =
     Html.div [
         prop.style [
             style.position.absolute
-            style.left(length.px icon.X)
-            style.top(length.px icon.Y)
-            style.border(length.px 1, borderStyle.solid, "black")
+            style.left (length.px icon.X)
+            style.top (length.px icon.Y)
+            style.border (length.px 1, borderStyle.solid, "black")
             style.width (length.px 10)
             style.height (length.px 10)
         ]
+        prop.onContextMenu (fun e ->
+            e.preventDefault()
+            dispatch (RemoveIcon iconID) )
     ]
 
 let renderIconInstances (state : State) (dispatch : Message -> unit) : ReactElement list =
     getIconTableFromState state
     |> Map.toSeq
-    |> Seq.map (fun (_, icon) -> renderIcon icon dispatch)
+    |> Seq.map (fun (id, icon) -> renderIcon id icon dispatch)
     |> Seq.toList
 
 let defaultBinaryOperators =
@@ -225,36 +238,62 @@ let renderHeldObject (state : State) =
             | Trap -> "Trap"
         | _ -> String.Empty
 
-    Html.div [
-        prop.style [
-            style.position.absolute
-            style.left(length.px 500) // TODO: Follow actual mouse
-            style.top(length.px 500)
-        ]
+    Html.p [
         prop.text heldObjectToString
     ]
 
 let render (state : State) (dispatch : Message -> unit) : ReactElement =
     Html.div [
-        prop.style [ style.position.relative ]
+        prop.style [
+            style.display.grid
+            style.gridTemplateAreas [
+                ["default-icon-spawners"; "icon-canvas"; "custom-icon-spawners"]
+                ["default-icon-spawners"; "toolbar"; "custom-icon-spawners"]
+            ]
+            style.gridTemplateColumns [ length.auto ; length.percent 80; length.auto ]
+            style.gridTemplateRows [ length.percent 95 ; length.auto ]
+        ]
         prop.children [
             Html.div [
-                prop.id "cursor-object"
+                prop.style [
+                    style.gridArea "toolbar"
+                    style.border (length.px 1, borderStyle.solid, "black")
+                ]
+                prop.id "toolbar"
                 prop.children [ renderHeldObject state ]
             ]
             Html.div [
+                prop.style [
+                    style.gridArea "default-icon-spawners"
+                    style.border (length.px 1, borderStyle.solid, "black")
+                ]
                 prop.id "default-icon-spawners"
                 prop.children [ renderDefaultIconSpawners dispatch ]
             ]
             Html.div [
+                prop.style [
+                    style.gridArea "custom-icon-spawners"
+                    style.border (length.px 1, borderStyle.solid, "black")
+                ]
                 prop.id "custom-icon-spawners"
                 prop.children [ renderCustomIconSpawners state dispatch ]
             ]
             Html.div [
+                prop.style [
+                    style.gridArea "icon-canvas"
+                    style.border (length.px 1, borderStyle.solid, "black")
+                ]
                 prop.id "icon-canvas"
                 prop.children (renderIconInstances state dispatch)
+                prop.onClick (fun e ->
+                    dispatch (PlacePickup (Position (int e.clientX, int e.clientY))))
             ]
         ]
+
+        if stateIsHoldingObject state then
+            prop.onContextMenu (fun e ->
+                e.preventDefault()
+                dispatch CancelPickup )
     ]
 
 Program.mkSimple init update render

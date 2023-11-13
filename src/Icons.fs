@@ -40,6 +40,14 @@ let transformInstructionParameters transform (instruction : IconInstruction) =
     |> transform
     |> saveParametersInInstruction instruction
 
+let countParameters instruction =
+    match instruction with
+    | TopLevelTrap -> 0
+    | Unary(_, _) -> 1
+    | Binary(_, _, _) -> 2
+    | If(_, _, _) -> 3
+    | CallCustomIcon (_, parameters) -> List.length parameters
+
 let replaceParameter position newParameter instruction =
     let transform =
         List.mapi (fun i param ->
