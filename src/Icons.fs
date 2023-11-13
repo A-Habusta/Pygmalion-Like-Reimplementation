@@ -19,34 +19,26 @@ type IconInstruction =
 
 let newIconID () = Guid.NewGuid()
 
-let transformInstructionParameters transform (instruction : IconInstruction) =
-    let extractInstructionParameters instruction =
-        match instruction with
-        | TopLevelTrap -> []
-        | Unary(_, param) -> [ param ]
-        | Binary(_, param1, param2) -> [ param1; param2 ]
-        | If(arg, trueBranch, falseBranch) -> [ arg; trueBranch; falseBranch ]
-        | CallCustomIcon (_, parameters) -> parameters
-    let saveParametersInInstruction (instruction : IconInstruction) (parameters: IconInstructionParameter list) =
-        match instruction with
-        | Unary(op, _) -> Unary(op, parameters[0])
-        | Binary(op, _, _) -> Binary(op, parameters[0], parameters[1])
-        | If _ -> If(parameters[0], parameters[1], parameters[2])
-        | CallCustomIcon (iconType, _) -> CallCustomIcon(iconType, parameters)
-        | _ -> instruction
+let extractInstructionParameters instruction =
+    match instruction with
+    | TopLevelTrap -> []
+    | Unary(_, param) -> [ param ]
+    | Binary(_, param1, param2) -> [ param1; param2 ]
+    | If(arg, trueBranch, falseBranch) -> [ arg; trueBranch; falseBranch ]
+    | CallCustomIcon (_, parameters) -> parameters
+let saveParametersInInstruction (instruction : IconInstruction) (parameters: IconInstructionParameter list) =
+    match instruction with
+    | Unary(op, _) -> Unary(op, parameters[0])
+    | Binary(op, _, _) -> Binary(op, parameters[0], parameters[1])
+    | If _ -> If(parameters[0], parameters[1], parameters[2])
+    | CallCustomIcon (iconType, _) -> CallCustomIcon(iconType, parameters)
+    | _ -> instruction
 
+let transformInstructionParameters transform (instruction : IconInstruction) =
     instruction
     |> extractInstructionParameters
     |> transform
     |> saveParametersInInstruction instruction
-
-let countParameters instruction =
-    match instruction with
-    | TopLevelTrap -> 0
-    | Unary(_, _) -> 1
-    | Binary(_, _, _) -> 2
-    | If(_, _, _) -> 3
-    | CallCustomIcon (_, parameters) -> List.length parameters
 
 let replaceParameter position newParameter instruction =
     let transform =
