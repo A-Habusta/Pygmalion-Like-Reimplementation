@@ -103,7 +103,7 @@ let renderSpawner (text : string) (iconType : IconType) (dispatch : Message -> u
     Html.div [
         Html.button [
             prop.text text
-            prop.onClick (fun _ -> dispatch (CreateIcon iconType))
+            prop.onClick (fun _ -> dispatch (PickupNewIcon iconType))
         ]
     ]
 

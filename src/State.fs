@@ -1,10 +1,6 @@
 module PygmalionReimplementation.State
 
 open System
-open Browser
-open Elmish
-open Elmish.React
-open Feliz
 
 open PygmalionReimplementation.Eval
 open PygmalionReimplementation.Icons
@@ -27,7 +23,7 @@ type State =
 
 type Message =
     | EvaluateIcon of IconID
-    | CreateIcon of IconType
+    | PickupNewIcon of IconType
     | PickupIcon of IconID
     | PickupIconParameter of IconInstructionParameter
     | PlacePickup of MovableObjectTarget
@@ -72,7 +68,7 @@ let private evalIconFromState (state : State) (id : IconID) =
     let newIcon = {icon with Result = Some (eval context icon.IconInstruction) }
     stateWithNewIcon state id newIcon
 
-let removeIconReferences (currentIcon : DrawnIcon) (targetID : IconID) : DrawnIcon =
+let private removeIconReferences (currentIcon : DrawnIcon) (targetID : IconID) : DrawnIcon =
     let removeIconReferencesFromInstruction (parameters : IconInstructionParameter list) : IconInstructionParameter list =
         parameters
             |> List.map (fun param ->
@@ -86,12 +82,12 @@ let removeIconReferences (currentIcon : DrawnIcon) (targetID : IconID) : DrawnIc
 
 
 let dummyCustomIconName = "dummy"
-let dummyCustomIcon : CustomIconType =
+let private dummyCustomIcon : CustomIconType =
     { ParameterCount = 0
       SavedIcons = Map.empty
       EntryPointIcon = newIconID () }
 
-let initialCustomIcons : CustomIcons =
+let private initialCustomIcons : CustomIcons =
     Map.empty |> Map.add dummyCustomIconName dummyCustomIcon
 
 let init () : State =
@@ -100,7 +96,40 @@ let init () : State =
       MasterCustomIconName = dummyCustomIconName
       MasterCustomIconParameters = [] }
 
+
 let update (message : Message) (state : State) : State =
+    let placePickup (targetLocation : MovableObjectTarget) =
+        match state.HeldObject with
+        | NoObject ->
+            printf "Tried to place object without holding any"
+            state
+        | NewIcon newIconType ->
+            match targetLocation with
+            | Position (x, y) ->
+                createDrawnIcon x y newIconType
+                |> stateWithNewIcon state (newIconID ())
+            | _ ->
+                printf "Tried placing new icon in invalid location"
+                state
+        | ExistingIcon iconID ->
+            match targetLocation with
+            | Position (x, y) ->
+                let icon = getIconFromState state iconID
+                let newIcon = { icon with X = x; Y = y }
+                stateWithNewIcon state iconID newIcon
+            | _ ->
+                printf "Tried moving icon to invalid location"
+                state
+        | Parameter parameter ->
+            match targetLocation with
+            | IconParameter (targetID, position) ->
+                let icon = getIconFromState state targetID
+                let newIcon =
+                    { icon with IconInstruction = replaceParameter position parameter icon.IconInstruction }
+                stateWithNewIcon state targetID newIcon
+            | _ ->
+                printf "Tried placing parameter in invalid location"
+                state
     match message with
     | EvaluateIcon id ->
         // TODO: Add error handling
@@ -109,8 +138,7 @@ let update (message : Message) (state : State) : State =
         with TrapException e ->
             printf "Trap!"
             state
-
-    | CreateIcon iconType ->
+    | PickupNewIcon iconType ->
         {state with HeldObject = NewIcon iconType}
     | PickupIcon id ->
         {state with HeldObject = ExistingIcon id}
@@ -119,29 +147,7 @@ let update (message : Message) (state : State) : State =
     | CancelPickup ->
         {state with HeldObject = NoObject}
     | PlacePickup targetLocation ->
-        match state.HeldObject with
-        | NoObject -> failwith "Tried to place object without holding any"
-        | NewIcon newIconType ->
-            match targetLocation with
-            | Position (x, y) ->
-                createDrawnIcon x y newIconType
-                |> stateWithNewIcon state (newIconID ())
-            | _ -> state
-        | ExistingIcon iconID ->
-            match targetLocation with
-            | Position (x, y) ->
-                let icon = getIconFromState state iconID
-                let newIcon = { icon with X = x; Y = y }
-                stateWithNewIcon state iconID newIcon
-            | _ -> state
-        | Parameter parameter ->
-            match targetLocation with
-            | IconParameter (targetID, position) ->
-                let icon = getIconFromState state targetID
-                let newIcon =
-                    { icon with IconInstruction = replaceParameter position parameter icon.IconInstruction }
-                stateWithNewIcon state targetID newIcon
-            | _ -> state
+        placePickup targetLocation
     | RemoveIcon id ->
         getIconTableFromState state
         |> Map.remove id
