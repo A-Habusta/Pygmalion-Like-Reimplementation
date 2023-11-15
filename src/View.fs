@@ -25,12 +25,20 @@ let private renderIcon
     (id : IconID)
     (state : State)
     (dispatch : Message -> unit) : ReactElement =
+    let renderIconIOField =
+        Html.div[]
+    let renderIconActions =
+        Html.div[]
     Html.div[
         prop.style [
             style.position.absolute
             style.left (length.px icon.X)
             style.top (length.px icon.Y)
             defaultBorder
+        ]
+        prop.children [
+            renderIconIOField
+            renderIconActions
         ]
     ]
 
@@ -53,8 +61,11 @@ let private defaultIconSpawnersView (dispatch : Message -> unit) : ReactElement 
         let spawnerList =
             List.map
                 (fun text -> Html.li [ spawnerView text (typeConstructor text) dispatch ])
-        Html.ul [
-            prop.children (spawnerList iconSource)
+        Html.div [
+            Html.h4 sectionName
+            Html.ul [
+                prop.children (spawnerList iconSource)
+            ]
         ]
     Html.div [
         spawnerListTemplate
@@ -67,7 +78,7 @@ let private defaultIconSpawnersView (dispatch : Message -> unit) : ReactElement 
             defaultBinaryOperators
         spawnerListTemplate
             "Special"
-            (fun op -> BaseIfIcon)
+            (fun _ -> BaseIfIcon)
             [ "If" ]
     ]
 
@@ -120,10 +131,17 @@ let private heldObjectView (state : State) =
     ]
 
 let renderIconCanvas (state : State) (dispatch : Message -> unit) : ReactElement =
-    let canvasOnClick =
-        prop.onClick (fun e ->
-            dispatch (PlacePickup (Position (int e.clientX, int e.clientY))))
-    Html.div (renderIconInstances state dispatch)
+    let canvasOnClick (e : Browser.Types.MouseEvent) =
+        e.preventDefault();
+        dispatch (PlacePickup (Position (int e.clientX, int e.clientY)))
+    Html.div [
+        prop.style [
+            style.height (length.perc 100)
+            style.width (length.perc 100)
+        ]
+        prop.onClick canvasOnClick
+        prop.children (renderIconInstances state dispatch)
+    ]
 
 let render (state : State) (dispatch : Message -> unit) : ReactElement =
     let leftTools = "default-icon-spawners"
@@ -135,15 +153,11 @@ let render (state : State) (dispatch : Message -> unit) : ReactElement =
         prop.style [
             style.display.grid
             style.gridTemplateAreas [
-                [leftTools; canvas; rightTools]
-                [leftTools; tabs; rightTools]
+                [ leftTools; canvas; rightTools ]
+                [ leftTools; tabs; rightTools ]
             ]
             style.gridTemplateColumns [ length.auto ; length.percent 80; length.auto ]
-            style.gridTemplateRows [ length.percent 95; length.auto ]
-            style.width (length.vw 100)
-            style.height (length.vh 100)
-            style.maxWidth (length.vw 100)
-            style.maxHeight (length.vh 100)
+            style.gridTemplateRows [ length.vh 95; length.vh 5]
         ]
     let gridArea (areaName : string) (element : ReactElement) =
         Html.div [
@@ -163,6 +177,7 @@ let render (state : State) (dispatch : Message -> unit) : ReactElement =
         ]
 
         prop.onContextMenu (fun e ->
-            e.preventDefault()
-            dispatch CancelPickup )
+            if stateIsHoldingObject state then
+                e.preventDefault()
+                dispatch CancelPickup )
     ]
