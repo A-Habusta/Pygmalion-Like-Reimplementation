@@ -105,7 +105,7 @@ let update (message : Message) (state : State) : State =
     let placePickup (targetLocation : MovableObjectTarget) =
         match state.HeldObject with
         | NoObject ->
-            printf "Tried to place object without holding any"
+            // printf "Tried placing object without holding anything"
             state
         | NewIcon newIconType ->
             match targetLocation with
@@ -113,7 +113,7 @@ let update (message : Message) (state : State) : State =
                 createDrawnIcon x y newIconType
                 |> stateWithNewIcon state (newIconID ())
             | _ ->
-                printf "Tried placing new icon in invalid location"
+                // printf "Tried placing new icon in invalid location"
                 state
         | ExistingIcon iconID ->
             match targetLocation with
@@ -122,7 +122,7 @@ let update (message : Message) (state : State) : State =
                 |> fun icon -> { icon with X = x; Y = y }
                 |> stateWithNewIcon state iconID
             | _ ->
-                printf "Tried moving icon to invalid location"
+                // printf "Tried moving icon to invalid location"
                 state
         | Parameter parameter ->
             match targetLocation with
@@ -132,7 +132,7 @@ let update (message : Message) (state : State) : State =
                     { icon with IconInstruction = replaceParameter position parameter icon.IconInstruction }
                 |> stateWithNewIcon state targetID
             | _ ->
-                printf "Tried placing parameter in invalid location"
+                // printf "Tried placing parameter in invalid location"
                 state
     match message with
     | EvaluateIcon id ->
