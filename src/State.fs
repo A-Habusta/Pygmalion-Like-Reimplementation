@@ -68,17 +68,22 @@ let private evalIconFromState (state : State) (id : IconID) =
     let newIcon = {icon with Result = Some (eval context icon.IconInstruction) }
     stateWithNewIcon state id newIcon
 
-let private removeIconReferences (currentIcon : DrawnIcon) (targetID : IconID) : DrawnIcon =
-    let removeIconReferencesFromInstruction (parameters : IconInstructionParameter list) : IconInstructionParameter list =
-        parameters
-            |> List.map (fun param ->
-                match param with
-                | LocalIconInstructionReference id when id = targetID -> Trap
-                | icon -> icon )
+let private removeIconReferencesFromTable (targetID : IconID) (table : IconTable) : IconTable =
+    let removeIconReferencesFromIcon (icon : DrawnIcon) =
+        let removeIconReferencesFromInstruction (instruction : IconInstruction) =
+            let removeIconReferencesFromParameter (parameter : IconInstructionParameter) =
+                match parameter with
+                | LocalIconInstructionReference id when id = targetID ->
+                    Trap
+                | _ ->
+                    parameter
+            transformInstructionParameters (List.map removeIconReferencesFromParameter) instruction
+        { icon with
+            IconInstruction = removeIconReferencesFromInstruction icon.IconInstruction
+            Result = None } // Automatically unEvaluates icons
+    table
+    |> Map.map (fun _ icon -> removeIconReferencesFromIcon icon)
 
-    { currentIcon with
-        IconInstruction = transformInstructionParameters removeIconReferencesFromInstruction currentIcon.IconInstruction
-        Result = None }
 
 
 let dummyCustomIconName = "dummy"
@@ -95,7 +100,6 @@ let init () : State =
       CustomIcons = initialCustomIcons
       MasterCustomIconName = dummyCustomIconName
       MasterCustomIconParameters = [] }
-
 
 let update (message : Message) (state : State) : State =
     let placePickup (targetLocation : MovableObjectTarget) =
@@ -114,19 +118,19 @@ let update (message : Message) (state : State) : State =
         | ExistingIcon iconID ->
             match targetLocation with
             | Position (x, y) ->
-                let icon = getIconFromState state iconID
-                let newIcon = { icon with X = x; Y = y }
-                stateWithNewIcon state iconID newIcon
+                getIconFromState state iconID
+                |> fun icon -> { icon with X = x; Y = y }
+                |> stateWithNewIcon state iconID
             | _ ->
                 printf "Tried moving icon to invalid location"
                 state
         | Parameter parameter ->
             match targetLocation with
             | IconParameter (targetID, position) ->
-                let icon = getIconFromState state targetID
-                let newIcon =
+                getIconFromState state targetID
+                |> fun icon ->
                     { icon with IconInstruction = replaceParameter position parameter icon.IconInstruction }
-                stateWithNewIcon state targetID newIcon
+                |> stateWithNewIcon state targetID
             | _ ->
                 printf "Tried placing parameter in invalid location"
                 state
@@ -151,13 +155,13 @@ let update (message : Message) (state : State) : State =
     | RemoveIcon id ->
         getIconTableFromState state
         |> Map.remove id
-        |> Map.map (fun _ icon -> removeIconReferences icon id)
+        |> removeIconReferencesFromTable id
         |> stateWithNewIconTable state
     | RemoveIconParameter (targetID, position) ->
-        let icon = getIconFromState state targetID
-        let newIcon =
+        getIconFromState state targetID
+        |> fun icon ->
             { icon with IconInstruction = replaceParameter position Trap icon.IconInstruction }
-        stateWithNewIcon state targetID newIcon
+        |> stateWithNewIcon state targetID
     | NotImplemented message ->
         printf "%s" message
         state
