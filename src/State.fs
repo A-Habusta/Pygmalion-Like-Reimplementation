@@ -102,28 +102,29 @@ let init () : State =
       MasterCustomIconParameters = [] }
 
 let update (message : Message) (state : State) : State =
+    let removeHeldObject (state : State) =
+        {state with HeldObject = NoObject}
     let placePickup (targetLocation : MovableObjectTarget) =
         match state.HeldObject with
         | NoObject ->
-            // printf "Tried placing object without holding anything"
-            state
+            None
         | NewIcon newIconType ->
             match targetLocation with
             | Position (x, y) ->
                 createDrawnIcon x y newIconType
                 |> stateWithNewIcon state (newIconID ())
+                |> Some
             | _ ->
-                // printf "Tried placing new icon in invalid location"
-                state
+                None
         | ExistingIcon iconID ->
             match targetLocation with
             | Position (x, y) ->
                 getIconFromState state iconID
                 |> fun icon -> { icon with X = x; Y = y }
                 |> stateWithNewIcon state iconID
+                |> Some
             | _ ->
-                // printf "Tried moving icon to invalid location"
-                state
+                None
         | Parameter parameter ->
             match targetLocation with
             | IconParameter (targetID, position) ->
@@ -131,9 +132,9 @@ let update (message : Message) (state : State) : State =
                 |> fun icon ->
                     { icon with IconInstruction = replaceParameter position parameter icon.IconInstruction }
                 |> stateWithNewIcon state targetID
+                |> Some
             | _ ->
-                // printf "Tried placing parameter in invalid location"
-                state
+                None
     match message with
     | EvaluateIcon id ->
         // TODO: Add error handling
@@ -149,9 +150,12 @@ let update (message : Message) (state : State) : State =
     | PickupIconParameter parameter ->
         {state with HeldObject = Parameter parameter}
     | CancelPickup ->
-        {state with HeldObject = NoObject}
+        removeHeldObject state
     | PlacePickup targetLocation ->
-        placePickup targetLocation
+        match placePickup targetLocation with
+        | Some newState ->
+            removeHeldObject newState
+        | None -> state
     | RemoveIcon id ->
         getIconTableFromState state
         |> Map.remove id
