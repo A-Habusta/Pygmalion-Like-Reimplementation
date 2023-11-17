@@ -20,16 +20,78 @@ let private stateIsHoldingObject (state : State) =
     | NoObject -> false
     | _ -> true
 
+let iconIsHeld (state : State) (id : IconID) =
+    match state.HeldObject with
+    | ExistingIcon heldId -> heldId = id
+    | _ -> false
+
+let private mouseEventPreventPropagation (e : Browser.Types.MouseEvent) =
+    e.preventDefault()
+    e.stopPropagation()
+
+let private parameterToString (state : State) (parameter : IconInstructionParameter) =
+    match parameter with
+    | LocalIconInstructionReference id ->
+        let icon = getIconFromState state id
+        match icon.Result with
+        | Some result -> sprintf "%A" result
+        | None -> unknownIdentifier
+    | BaseIconParameter position ->
+        let func = state.MasterCustomIconParameters[position]
+        match func.IsValueCreated with
+        | true -> sprintf "%A" func.Value
+        | false -> unknownIdentifier
+    | Constant value -> sprintf "%A" value
+    | Trap -> "Trap"
+
+
 let private renderIcon
     (icon : DrawnIcon)
     (id : IconID)
     (state : State)
     (dispatch : Message -> unit) : ReactElement =
     let renderIconIOField =
-        Html.div[]
+        let renderParameter (parameter : IconInstructionParameter) =
+            let parameterText = parameterToString state parameter
+            Html.div [
+                prop.text parameterText
+            ]
+        Html.div (
+            List.map renderParameter (extractInstructionParameters icon.IconInstruction)
+        )
     let renderIconActions =
-        Html.div[]
-    Html.div[
+        let specialActionText =
+            match icon.Result with
+            | Some _ -> "Pickup Reference"
+            | None -> "Evaluate"
+        let specialActionHandler (e : Browser.Types.MouseEvent) =
+            mouseEventPreventPropagation e
+            match icon.Result with
+            | Some _ -> PickupIconParameter (LocalIconInstructionReference id)
+            | None -> EvaluateIcon id
+            |> dispatch
+        Html.div [
+            Html.button [
+                prop.text "Remove"
+                prop.onClick (fun e ->
+                    mouseEventPreventPropagation e
+                    dispatch (RemoveIcon id) )
+                prop.disabled (iconIsHeld state id)
+            ]
+            Html.button [
+                prop.text specialActionText
+                prop.onClick specialActionHandler
+                prop.disabled (iconIsHeld state id)
+            ]
+            Html.button [
+                prop.text "Move"
+                prop.onClick (fun e ->
+                    mouseEventPreventPropagation e
+                    dispatch (PickupIcon id) )
+                prop.disabled (iconIsHeld state id)
+            ]
+        ]
+    Html.div [
         prop.style [
             style.position.absolute
             style.left (length.px icon.X)
@@ -101,21 +163,6 @@ let private customIconSpawnersView (state : State) (dispatch : Message -> unit) 
             (fun (id, icon) ->
                 customIconSpawnerView id icon) )
 
-let private parameterToString (state : State) (parameter : IconInstructionParameter) =
-    match parameter with
-    | LocalIconInstructionReference id ->
-        let icon = getIconFromState state id
-        match icon.Result with
-        | Some result -> sprintf "%A" result
-        | None -> unknownIdentifier
-    | BaseIconParameter position ->
-        let func = state.MasterCustomIconParameters[position]
-        match func.IsValueCreated with
-        | true -> sprintf "%A" func.Value
-        | false -> unknownIdentifier
-    | Constant value -> sprintf "%A" value
-    | Trap -> "Trap"
-
 let private heldObjectView (state : State) =
     let heldObjectToString =
         let object = state.HeldObject
@@ -132,7 +179,7 @@ let private heldObjectView (state : State) =
 
 let renderIconCanvas (state : State) (dispatch : Message -> unit) : ReactElement =
     let canvasOnClick (e : Browser.Types.MouseEvent) =
-        e.preventDefault();
+        mouseEventPreventPropagation e
         dispatch (PlacePickup (Position (int e.clientX, int e.clientY)))
     Html.div [
         prop.style [
@@ -149,8 +196,7 @@ let render (state : State) (dispatch : Message -> unit) : ReactElement =
     let tabs = "tabs"
     let rightTools= "custom-icon-spawners"
 
-    let rootStyle =
-        prop.style [
+    let rootStyle = [
             style.display.grid
             style.gridTemplateAreas [
                 [ leftTools; canvas; rightTools ]
@@ -168,7 +214,7 @@ let render (state : State) (dispatch : Message -> unit) : ReactElement =
             prop.children [ element ]
         ]
     Html.div [
-        rootStyle
+        prop.style rootStyle
         prop.children [
             gridArea leftTools (defaultIconSpawnersView dispatch)
             gridArea rightTools (customIconSpawnersView state dispatch)
