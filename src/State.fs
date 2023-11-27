@@ -19,7 +19,8 @@ type State =
     { HeldObject : MovableObject
       CustomIcons : CustomIcons
       MasterCustomIconName : string
-      MasterCustomIconParameters : Lazy<int> list }
+      MasterCustomIconParameters : Lazy<int> list
+      ConstantSpawnerText : string }
 
 type Message =
     | EvaluateIcon of IconID
@@ -30,6 +31,7 @@ type Message =
     | CancelPickup
     | RemoveIcon of IconID
     | RemoveIconParameter of target : IconID * position : int
+    | ChangeConstantSpawnerText of text : string
     | NotImplemented of message : string
 
 let getIconTableFromState (state : State) =
@@ -99,7 +101,8 @@ let init () : State =
     { HeldObject = NoObject
       CustomIcons = initialCustomIcons
       MasterCustomIconName = dummyCustomIconName
-      MasterCustomIconParameters = [] }
+      MasterCustomIconParameters = []
+      ConstantSpawnerText = String.Empty }
 
 let update (message : Message) (state : State) : State =
     let removeHeldObject (state : State) =
@@ -166,6 +169,8 @@ let update (message : Message) (state : State) : State =
         |> fun icon ->
             { icon with IconInstruction = replaceParameter position Trap icon.IconInstruction }
         |> stateWithNewIcon state targetID
+    | ChangeConstantSpawnerText text ->
+        { state with ConstantSpawnerText = text }
     | NotImplemented message ->
         printf "%s" message
         state

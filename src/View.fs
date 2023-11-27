@@ -41,9 +41,8 @@ let private parameterToString (state : State) (parameter : IconInstructionParame
         match func.IsValueCreated with
         | true -> sprintf "%A" func.Value
         | false -> unknownIdentifier
-    | Constant value -> sprintf "%A" value
+    | Constant value -> sprintf "%d" value
     | Trap -> String.Empty
-
 
 let private renderIcon
     (icon : DrawnIcon)
@@ -52,45 +51,86 @@ let private renderIcon
     (dispatch : Message -> unit) : ReactElement =
     let renderIconIOField =
         let renderParameter (index : int) (parameter : IconInstructionParameter) =
-            let style = [
-                style.width (length.px 20)
-                style.height (length.px 20)
+            let parameterBoxSize = 30
+            let parameterStyle = [
+                style.minWidth (length.px parameterBoxSize)
+                style.height (length.px parameterBoxSize)
                 style.margin (length.px 2)
+                style.display.flex
                 defaultBorder
             ]
+            let deleteButton =
+                Html.div [
+                    prop.text "X"
+                    prop.onClick (fun e ->
+                        mouseEventPreventPropagation e
+                        dispatch (RemoveIconParameter(id, index)) )
+                    prop.style [
+                        style.fontSize (length.px 6)
+                        style.position.absolute
+                    ]
+                ]
+            let text =
+                Html.div [
+                    prop.text (parameterToString state parameter)
+                    prop.style [
+                        style.alignSelf.center
+                    ]
+                ]
+
             Html.div [
-                prop.style style
-                prop.text (parameterToString state parameter)
+                prop.style parameterStyle
                 prop.onClick (fun e ->
                     mouseEventPreventPropagation e
                     dispatch (PlacePickup(IconParameter(id, index))) )
+                prop.children [
+                    text
+                    if parameter <> Trap then
+                        deleteButton
+                ]
             ]
 
         let decorateIcon (icon : DrawnIcon) (renderedParameters : ReactElement list) =
+            let iconDecoratorText (text : string) =
+                let boldWeight = 700
+                Html.div [
+                    prop.text text
+                    prop.style [
+                        style.margin (length.px 5)
+                        style.fontWeight boldWeight
+                    ]
+                ]
+
             match icon.IconInstruction with
             | Unary (op, _) ->
-                [ Html.text op; renderedParameters[0] ]
+                [ iconDecoratorText op; renderedParameters[0] ]
             | Binary (op, _, _) ->
-                [ renderedParameters[0]; Html.text op; renderedParameters[1] ]
+                [ renderedParameters[0]; iconDecoratorText op; renderedParameters[1] ]
             | If (_, _, _) -> [
-                    Html.text "If"
+                    iconDecoratorText "If"
                     renderedParameters[0]
-                    Html.text "Then"
+                    iconDecoratorText "Then"
                     renderedParameters[1]
-                    Html.text "Else"
+                    iconDecoratorText "Else"
                     renderedParameters[2]
                 ]
             | CallCustomIcon (name, _) ->
-                Html.text name :: renderedParameters
+                iconDecoratorText name :: renderedParameters
             | TopLevelTrap -> [ Html.text "Trap" ]
 
         match icon.Result with
         | Some result ->
-            Html.text result
+            Html.div [
+                prop.style [
+                    style.margin (length.px 5)
+                ]
+                prop.text (sprintf "%d" result)
+            ]
         | None ->
             Html.div [
                 prop.style [
                     style.display.flex
+                    style.alignContent.center
                 ]
                 prop.children (
                     List.mapi renderParameter (extractInstructionParameters icon.IconInstruction)
@@ -206,6 +246,43 @@ let private customIconSpawnersView (state : State) (dispatch : Message -> unit) 
             (fun (id, icon) ->
                 customIconSpawnerView id icon) )
 
+let private constantSpawnerView (state : State) (dispatch : Message -> unit) : ReactElement =
+    let isNumber (text : string) =
+        match Int32.TryParse text with
+        | true, _ -> true
+        | _ -> false
+
+    Html.div [
+        Html.input [
+            prop.type' "number"
+            prop.placeholder "Constant"
+            prop.onTextChange (fun newText ->
+                dispatch (ChangeConstantSpawnerText newText) )
+        ]
+        Html.button [
+            prop.text "Pickup"
+            prop.onClick (fun _ ->
+                match state.ConstantSpawnerText with
+                | text when isNumber text ->
+                    dispatch (PickupIconParameter (Constant (int text)))
+                | _ -> () )
+            isNumber state.ConstantSpawnerText
+            |> not
+            |> prop.disabled
+        ]
+    ]
+
+let private leftToolsView (state : State) (dispatch : Message -> unit) : ReactElement =
+    Html.div [
+        prop.style [
+            style.margin (length.px 5)
+        ]
+        prop.children [
+            defaultIconSpawnersView dispatch
+            constantSpawnerView state dispatch
+        ]
+    ]
+
 let private heldObjectView (state : State) =
     let heldObjectToString =
         let object = state.HeldObject
@@ -216,7 +293,7 @@ let private heldObjectView (state : State) =
         | ExistingIcon _ -> "Moving existing icon"
         | _ -> String.Empty
 
-    Html.p [
+    Html.div [
         prop.text heldObjectToString
     ]
 
@@ -259,7 +336,7 @@ let render (state : State) (dispatch : Message -> unit) : ReactElement =
     Html.div [
         prop.style rootStyle
         prop.children [
-            gridArea leftTools (defaultIconSpawnersView dispatch)
+            gridArea leftTools (leftToolsView state dispatch)
             gridArea rightTools (customIconSpawnersView state dispatch)
             gridArea canvas (renderIconCanvas state dispatch)
             gridArea tabs (heldObjectView state)
