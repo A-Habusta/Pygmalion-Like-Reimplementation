@@ -42,7 +42,7 @@ let private parameterToString (state : State) (parameter : IconInstructionParame
         | true -> sprintf "%A" func.Value
         | false -> unknownIdentifier
     | Constant value -> sprintf "%A" value
-    | Trap -> "Trap"
+    | Trap -> String.Empty
 
 
 let private renderIcon
@@ -51,18 +51,55 @@ let private renderIcon
     (state : State)
     (dispatch : Message -> unit) : ReactElement =
     let renderIconIOField =
-        let renderParameter (parameter : IconInstructionParameter) =
-            let parameterText = parameterToString state parameter
-            Html.div [
-                prop.text parameterText
+        let renderParameter (index : int) (parameter : IconInstructionParameter) =
+            let style = [
+                style.width (length.px 20)
+                style.height (length.px 20)
+                style.margin (length.px 2)
+                defaultBorder
             ]
-        Html.div (
-            List.map renderParameter (extractInstructionParameters icon.IconInstruction)
-        )
+            Html.div [
+                prop.style style
+                prop.text (parameterToString state parameter)
+                prop.onClick (fun e ->
+                    mouseEventPreventPropagation e
+                    dispatch (PlacePickup(IconParameter(id, index))) )
+            ]
+
+        let decorateIcon (icon : DrawnIcon) (renderedParameters : ReactElement list) =
+            match icon.IconInstruction with
+            | Unary (op, _) ->
+                [ Html.text op; renderedParameters[0] ]
+            | Binary (op, _, _) ->
+                [ renderedParameters[0]; Html.text op; renderedParameters[1] ]
+            | If (_, _, _) -> [
+                    Html.text "If"
+                    renderedParameters[0]
+                    Html.text "Then"
+                    renderedParameters[1]
+                    Html.text "Else"
+                    renderedParameters[2]
+                ]
+            | CallCustomIcon (name, _) ->
+                Html.text name :: renderedParameters
+            | TopLevelTrap -> [ Html.text "Trap" ]
+
+        match icon.Result with
+        | Some result ->
+            Html.text result
+        | None ->
+            Html.div [
+                prop.style [
+                    style.display.flex
+                ]
+                prop.children (
+                    List.mapi renderParameter (extractInstructionParameters icon.IconInstruction)
+                    |> decorateIcon icon )
+            ]
     let renderIconActions =
         let specialActionText =
             match icon.Result with
-            | Some _ -> "Pickup Reference"
+            | Some _ -> "Get Reference"
             | None -> "Evaluate"
         let specialActionHandler (e : Browser.Types.MouseEvent) =
             mouseEventPreventPropagation e
@@ -71,29 +108,35 @@ let private renderIcon
             | None -> EvaluateIcon id
             |> dispatch
         Html.div [
-            Html.button [
-                prop.text "Remove"
-                prop.onClick (fun e ->
-                    mouseEventPreventPropagation e
-                    dispatch (RemoveIcon id) )
-                prop.disabled (iconIsHeld state id)
+            prop.style [
+                style.display.flex
             ]
-            Html.button [
-                prop.text specialActionText
-                prop.onClick specialActionHandler
-                prop.disabled (iconIsHeld state id)
-            ]
-            Html.button [
-                prop.text "Move"
-                prop.onClick (fun e ->
-                    mouseEventPreventPropagation e
-                    dispatch (PickupIcon id) )
-                prop.disabled (iconIsHeld state id)
+            prop.children [
+                Html.button [
+                    prop.text "Remove"
+                    prop.onClick (fun e ->
+                        mouseEventPreventPropagation e
+                        dispatch (RemoveIcon id) )
+                    prop.disabled (iconIsHeld state id)
+                ]
+                Html.button [
+                    prop.text specialActionText
+                    prop.onClick specialActionHandler
+                    prop.disabled (iconIsHeld state id)
+                ]
+                Html.button [
+                    prop.text "Move"
+                    prop.onClick (fun e ->
+                        mouseEventPreventPropagation e
+                        dispatch (PickupIcon id) )
+                    prop.disabled (iconIsHeld state id)
+                ]
             ]
         ]
     Html.div [
         prop.style [
             style.position.absolute
+            style.display.flex
             style.left (length.px icon.X)
             style.top (length.px icon.Y)
             defaultBorder
