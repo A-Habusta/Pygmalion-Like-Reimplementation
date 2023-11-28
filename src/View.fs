@@ -37,7 +37,7 @@ let private parameterToString (state : State) (parameter : IconInstructionParame
         | Some result -> sprintf "%A" result
         | None -> unknownIdentifier
     | BaseIconParameter position ->
-        let func = state.MasterCustomIconParameters[position]
+        let func = getMasterCustomIconParameters state |> List.item position
         match func.IsValueCreated with
         | true -> sprintf "%A" func.Value
         | false -> unknownIdentifier
@@ -245,7 +245,7 @@ let private customIconSpawnersView (state : State) (dispatch : Message -> unit) 
         ]
     Html.div ( state.CustomIcons
           |> Map.toList
-          |> List.filter (fun (name, _) -> name <> state.MasterCustomIconName)
+          |> List.filter (fun (name, _) -> name <> getMasterCustomIconName state)
           |> List.map
             (fun (id, icon) ->
                 customIconSpawnerView id icon) )

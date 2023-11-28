@@ -15,12 +15,18 @@ type MovableObjectTarget =
     | Position of x : int * y : int
     | IconParameter of target : IconID * position : int
 
+type TabState =
+    { Name : string
+      MasterCustomIconName : string
+      MasterCustomIconParameters : Lazy<int> list }
+
 type State =
     { HeldObject : MovableObject
       CustomIcons : CustomIcons
-      MasterCustomIconName : string
-      MasterCustomIconParameters : Lazy<int> list
-      ConstantSpawnerText : string }
+      ConstantSpawnerText : string
+      CurrentTabIndex : int
+      Tabs : TabState list }
+
 
 type Message =
     | EvaluateIcon of IconID
@@ -32,21 +38,40 @@ type Message =
     | RemoveIcon of IconID
     | RemoveIconParameter of target : IconID * position : int
     | ChangeConstantSpawnerText of text : string
+    | ChangeTab of index : int
     | NotImplemented of message : string
 
+let getCurrentTab (state : State) =
+    state.Tabs.[state.CurrentTabIndex]
+
+let getMasterCustomIconName (state : State) =
+    getCurrentTab state
+    |> fun tab -> tab.MasterCustomIconName
+
+let getMasterCustomIcon (state : State) =
+    getMasterCustomIconName state
+    |> fun name -> state.CustomIcons.[name]
+
+let getMasterCustomIconParameters (state : State) =
+    getCurrentTab state
+    |> fun tab -> tab.MasterCustomIconParameters
+
 let getIconTableFromState (state : State) =
-    state.CustomIcons[state.MasterCustomIconName].SavedIcons
+    getCurrentTab state
+    |> fun tab ->
+        state.CustomIcons.[tab.MasterCustomIconName].SavedIcons
 
 let getIconFromState (state : State) (id : IconID) =
     getIconTableFromState state |> Map.find id
 
 let private stateWithNewIconTable (state : State) (newIconTable : IconTable) =
+    let customIconName = getMasterCustomIconName state
     { state with
         CustomIcons =
             state.CustomIcons
             |> Map.add
-                state.MasterCustomIconName
-                { state.CustomIcons[state.MasterCustomIconName] with SavedIcons = newIconTable } }
+                customIconName
+                { state.CustomIcons[customIconName] with SavedIcons = newIconTable } }
 
 let private stateWithNewIcon (state : State) (id : IconID) (newIcon : DrawnIcon) =
     stateWithNewIconTable state (getIconTableFromState state |> Map.add id newIcon)
@@ -64,9 +89,9 @@ let private evalIconFromState (state : State) (id : IconID) =
     let icon = getIconFromState state id
     let context =
         { CustomIcons = state.CustomIcons
-          ExecutingCustomIcon = state.CustomIcons[state.MasterCustomIconName]
+          ExecutingCustomIcon = getMasterCustomIcon state
           CurrentIconID = id
-          Parameters = state.MasterCustomIconParameters }
+          Parameters = getMasterCustomIconParameters state }
     let newIcon = {icon with Result = Some (eval context icon.IconInstruction) }
     stateWithNewIcon state id newIcon
 
@@ -90,8 +115,8 @@ let private removeIconReferencesFromTable (targetID : IconID) (table : IconTable
 let randomNameGenerator len =
     let random = Random ()
     let charSet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-    let charList = [| for i in 1 .. len -> charSet.[random.Next(charSet.Length)] |]
-    String charList
+    let charArray = [| for i in 1 .. len -> charSet.[random.Next(charSet.Length)] |]
+    String charArray
 
 let dummyCustomIconName = randomNameGenerator 64
 let private dummyCustomIcon : CustomIconType =
@@ -102,12 +127,19 @@ let private dummyCustomIcon : CustomIconType =
 let private initialCustomIcons : CustomIcons =
     Map.empty |> Map.add dummyCustomIconName dummyCustomIcon
 
+let mainTabName = "Main"
+
+let initalTabState =
+    { Name = mainTabName
+      MasterCustomIconName = dummyCustomIconName
+      MasterCustomIconParameters = [] }
+
 let init () : State =
     { HeldObject = NoObject
       CustomIcons = initialCustomIcons
-      MasterCustomIconName = dummyCustomIconName
-      MasterCustomIconParameters = []
-      ConstantSpawnerText = String.Empty }
+      ConstantSpawnerText = String.Empty
+      CurrentTabIndex = 0
+      Tabs = [ initalTabState ] }
 
 let update (message : Message) (state : State) : State =
     let removeHeldObject (state : State) =
@@ -176,6 +208,12 @@ let update (message : Message) (state : State) : State =
         |> stateWithNewIcon state targetID
     | ChangeConstantSpawnerText text ->
         { state with ConstantSpawnerText = text }
+    | ChangeTab index ->
+        match index with
+        | i when i < 0 || i >= state.Tabs.Length ->
+            state
+        | _ ->
+            { state with CurrentTabIndex = index }
     | NotImplemented message ->
         printf "%s" message
         state
