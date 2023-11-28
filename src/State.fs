@@ -87,8 +87,13 @@ let private removeIconReferencesFromTable (targetID : IconID) (table : IconTable
     |> Map.map (fun _ icon -> removeIconReferencesFromIcon icon)
 
 
+let randomNameGenerator len =
+    let random = Random ()
+    let charSet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    let charList = [| for i in 1 .. len -> charSet.[random.Next(charSet.Length)] |]
+    String charList
 
-let dummyCustomIconName = "dummy"
+let dummyCustomIconName = randomNameGenerator 64
 let private dummyCustomIcon : CustomIconType =
     { ParameterCount = 0
       SavedIcons = Map.empty

@@ -245,6 +245,7 @@ let private customIconSpawnersView (state : State) (dispatch : Message -> unit) 
         ]
     Html.div ( state.CustomIcons
           |> Map.toList
+          |> List.filter (fun (name, _) -> name <> state.MasterCustomIconName)
           |> List.map
             (fun (id, icon) ->
                 customIconSpawnerView id icon) )
@@ -256,7 +257,11 @@ let private constantSpawnerView (state : State) (dispatch : Message -> unit) : R
         | _ -> false
 
     Html.div [
+        prop.children [
         Html.input [
+            prop.style [
+                style.width (length.percent 95)
+            ]
             prop.type' "number"
             prop.placeholder "Constant"
             prop.onTextChange (fun newText ->
@@ -272,6 +277,8 @@ let private constantSpawnerView (state : State) (dispatch : Message -> unit) : R
             isNumber state.ConstantSpawnerText
             |> not
             |> prop.disabled
+        ]
+
         ]
     ]
 
@@ -325,7 +332,7 @@ let render (state : State) (dispatch : Message -> unit) : ReactElement =
                 [ leftTools; canvas; rightTools ]
                 [ leftTools; tabs; rightTools ]
             ]
-            style.gridTemplateColumns [ length.auto ; length.percent 80; length.auto ]
+            style.gridTemplateColumns [ length.percent 10; length.percent 80; length.percent 10]
             style.gridTemplateRows [ length.vh 95; length.vh 5]
         ]
     let gridArea (areaName : string) (element : ReactElement) =
