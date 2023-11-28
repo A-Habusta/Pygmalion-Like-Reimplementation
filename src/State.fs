@@ -90,7 +90,7 @@ let private evalIconFromState (state : State) (id : IconID) =
     let context =
         { CustomIcons = state.CustomIcons
           ExecutingCustomIcon = getMasterCustomIcon state
-          CurrentIconID = id
+          CurrentIconID = Some id
           Parameters = getMasterCustomIconParameters state }
     let newIcon = {icon with Result = Some (eval context icon.IconInstruction) }
     stateWithNewIcon state id newIcon
@@ -123,7 +123,7 @@ let dummyCustomIconName = randomNameGenerator 64
 let private dummyCustomIcon : CustomIconType =
     { ParameterCount = 0
       SavedIcons = Map.empty
-      EntryPointIcon = newIconID () }
+      EntryPointIcon = Some (newIconID ()) }
 
 let private initialCustomIcons : CustomIcons =
     Map.empty |> Map.add dummyCustomIconName dummyCustomIcon

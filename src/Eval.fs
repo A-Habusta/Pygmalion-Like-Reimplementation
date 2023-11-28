@@ -48,14 +48,18 @@ let getCorrectBinaryOperation operator =
 type EvalContext =
     { CustomIcons : CustomIcons
       ExecutingCustomIcon : CustomIconType
-      CurrentIconID : IconID
+      CurrentIconID : IconID option
       Parameters : Lazy<int> list }
 
 let getIconInstructionFromID (context : EvalContext) (id : IconID) =
     context.ExecutingCustomIcon.SavedIcons[id].IconInstruction
 
+
 let getContextEntryPointInstruction (context : EvalContext) =
-    getIconInstructionFromID context context.ExecutingCustomIcon.EntryPointIcon
+    let entryPointID = context.ExecutingCustomIcon.EntryPointIcon
+    match entryPointID with
+    | Some id -> getIconInstructionFromID context id
+    | None -> TopLevelTrap
 
 exception TrapException of EvalContext
 
@@ -95,4 +99,4 @@ and instructionParamEval (context : EvalContext) (instruction : IconInstructionP
     | Trap -> trap context
     | Constant n -> n
     | BaseIconParameter index -> context.Parameters[index].Value
-    | LocalIconInstructionReference id  -> eval {context with CurrentIconID = id } (getIconInstructionFromID context id)
+    | LocalIconInstructionReference id  -> eval {context with CurrentIconID = Some id } (getIconInstructionFromID context id)

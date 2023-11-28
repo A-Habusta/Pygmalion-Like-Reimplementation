@@ -78,6 +78,6 @@ let createDrawnIcon x y iconType =
 type CustomIconType =
     { ParameterCount : int
       SavedIcons : IconTable
-      EntryPointIcon : IconID }
+      EntryPointIcon : IconID option}
 
 type CustomIcons = Map<string, CustomIconType>
