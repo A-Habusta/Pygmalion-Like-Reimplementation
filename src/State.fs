@@ -113,10 +113,11 @@ let private removeIconReferencesFromTable (targetID : IconID) (table : IconTable
 
 
 let randomNameGenerator len =
-    let random = Random ()
     let charSet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-    let charArray = [| for i in 1 .. len -> charSet.[random.Next(charSet.Length)] |]
-    String charArray
+    Random ()
+    |> fun rand ->
+        [| for i in 1 .. len -> charSet.[rand.Next(charSet.Length)] |]
+    |> String
 
 let dummyCustomIconName = randomNameGenerator 64
 let private dummyCustomIcon : CustomIconType =
