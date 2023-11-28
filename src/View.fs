@@ -196,6 +196,9 @@ let private renderIconInstances (state : State) (dispatch : Message -> unit) : R
 let private defaultIconSpawnersView (dispatch : Message -> unit) : ReactElement =
     let spawnerView (text : string) (iconType : IconType) (dispatch : Message -> unit) : ReactElement =
         Html.button [
+            prop.style [
+                style.width (length.px 30)
+            ]
             prop.text text
             prop.onClick (fun _ -> dispatch (PickupNewIcon iconType))
         ]
