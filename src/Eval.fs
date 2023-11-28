@@ -31,7 +31,7 @@ let getCorrectCompareBinaryOperation operatorString =
         | ">" -> (>)
         | ">=" -> (>=)
         | "=" -> (=)
-        | "!=" -> (<>)
+        | "<>" -> (<>)
         | _ -> getCorrectBoolBinaryOperation operatorString
 
     boolToInt (matchFunc operatorString)
