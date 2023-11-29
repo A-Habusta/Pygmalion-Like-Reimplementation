@@ -32,8 +32,7 @@ let private mouseEventPreventPropagation (e : Browser.Types.MouseEvent) =
 let private parameterToString (state : State) (parameter : IconInstructionParameter) =
     match parameter with
     | LocalIconInstructionReference id ->
-        let icon = getIconFromState state id
-        match icon.Result with
+        match getIconResultFromState state id with
         | Some result -> sprintf "%A" result
         | None -> unknownIdentifier
     | BaseIconParameter position ->
@@ -118,7 +117,7 @@ let private renderIcon
                 iconDecoratorText name :: renderedParameters
             | TopLevelTrap -> [ Html.text "Trap" ]
 
-        match icon.Result with
+        match getIconResultFromState state id with
         | Some result ->
             Html.div [
                 prop.style [
@@ -138,12 +137,12 @@ let private renderIcon
             ]
     let renderIconActions =
         let specialActionText =
-            match icon.Result with
+            match getIconResultFromState state id with
             | Some _ -> "Get Reference"
             | None -> "Evaluate"
         let specialActionHandler (e : Browser.Types.MouseEvent) =
             mouseEventPreventPropagation e
-            match icon.Result with
+            match getIconResultFromState state id with
             | Some _ -> PickupIconParameter (LocalIconInstructionReference id)
             | None -> EvaluateIcon id
             |> dispatch
@@ -357,3 +356,4 @@ let render (state : State) (dispatch : Message -> unit) : ReactElement =
                 e.preventDefault()
                 dispatch CancelPickup )
     ]
+

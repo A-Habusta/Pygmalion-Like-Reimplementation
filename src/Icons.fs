@@ -63,7 +63,6 @@ let createEmptyIconInstruction (iconType : IconType) =
 type DrawnIcon =
     { X : int
       Y : int
-      Result : int option
       IconType : IconType
       IconInstruction : IconInstruction }
 
@@ -71,7 +70,6 @@ type IconTable = Map<IconID, DrawnIcon>
 let createDrawnIcon x y iconType =
     { X = x
       Y = y
-      Result = None
       IconType = iconType
       IconInstruction = createEmptyIconInstruction iconType }
 

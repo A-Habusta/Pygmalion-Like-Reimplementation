@@ -73,7 +73,7 @@ let getIconResultFromState (state : State) (id : IconID) =
     getIconResultsTableFromState state
     |> Map.tryFind id
 
-let saveNewIconResults (state : State) (results : IconResultsTable) =
+let stateWithNewIconResults (results : IconResultsTable) (state : State) =
     let iconResultsTable = getIconResultsTableFromState state
     { state with
         Tabs =
@@ -106,14 +106,12 @@ let private stateReplaceParameter
     |> stateWithNewIcon state targetID
 
 let private evalIconFromState (state : State) (id : IconID) =
-    let icon = getIconFromState state id
     let context =
         { CustomIcons = state.CustomIcons
           ExecutingCustomIcon = getMasterCustomIcon state
           CurrentIconID = Some id
           Parameters = getMasterCustomIconParameters state }
-    let newIcon = {icon with Result = Some (eval context icon.IconInstruction) }
-    stateWithNewIcon state id newIcon
+    stateWithNewIconResults (eval context id) state
 
 let private removeIconReferencesFromTable (targetID : IconID) (table : IconTable) : IconTable =
     let removeIconReferencesFromIcon (icon : DrawnIcon) =
@@ -126,8 +124,7 @@ let private removeIconReferencesFromTable (targetID : IconID) (table : IconTable
                     parameter
             transformInstructionParameters (List.map removeIconReferencesFromParameter) instruction
         { icon with
-            IconInstruction = removeIconReferencesFromInstruction icon.IconInstruction
-            Result = None } // Automatically unEvaluates icons
+            IconInstruction = removeIconReferencesFromInstruction icon.IconInstruction }
     table
     |> Map.map (fun _ icon -> removeIconReferencesFromIcon icon)
 
@@ -202,7 +199,7 @@ let update (message : Message) (state : State) : State =
         // TODO: Add error handling
         try
             evalIconFromState state id
-        with TrapException e ->
+        with TrapException(_, _) ->
             printf "Trap!"
             state
     | PickupNewIcon iconType ->
@@ -223,6 +220,7 @@ let update (message : Message) (state : State) : State =
         |> Map.remove id
         |> removeIconReferencesFromTable id
         |> stateWithNewIconTable state
+        |> stateWithNewIconResults Map.empty // Un-evaluate all icons to be safe
     | RemoveIconParameter (targetID, position) ->
         getIconFromState state targetID
         |> fun icon ->
