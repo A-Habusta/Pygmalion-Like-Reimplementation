@@ -18,7 +18,8 @@ type MovableObjectTarget =
 type TabState =
     { Name : string
       MasterCustomIconName : string
-      MasterCustomIconParameters : Lazy<int> list }
+      MasterCustomIconParameters : Lazy<int> list
+      Results : IconResultsTable }
 
 type State =
     { HeldObject : MovableObject
@@ -63,6 +64,25 @@ let getIconTableFromState (state : State) =
 
 let getIconFromState (state : State) (id : IconID) =
     getIconTableFromState state |> Map.find id
+
+let getIconResultsTableFromState (state : State) =
+    getCurrentTab state
+    |> fun tab -> tab.Results
+
+let getIconResultFromState (state : State) (id : IconID) =
+    getIconResultsTableFromState state
+    |> Map.tryFind id
+
+let saveNewIconResults (state : State) (results : IconResultsTable) =
+    let iconResultsTable = getIconResultsTableFromState state
+    { state with
+        Tabs =
+            state.Tabs
+            |> List.mapi (fun i tab ->
+                if i = state.CurrentTabIndex then
+                    { tab with Results = results }
+                else
+                    tab ) }
 
 let private stateWithNewIconTable (state : State) (newIconTable : IconTable) =
     let customIconName = getMasterCustomIconName state
@@ -133,7 +153,8 @@ let mainTabName = "Main"
 let initalTabState =
     { Name = mainTabName
       MasterCustomIconName = dummyCustomIconName
-      MasterCustomIconParameters = [] }
+      MasterCustomIconParameters = List.empty
+      Results = Map.empty }
 
 let init () : State =
     { HeldObject = NoObject

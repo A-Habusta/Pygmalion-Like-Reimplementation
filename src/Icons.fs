@@ -81,3 +81,5 @@ type CustomIconType =
       EntryPointIcon : IconID option}
 
 type CustomIcons = Map<string, CustomIconType>
+
+type IconResultsTable = Map<IconID, int>
