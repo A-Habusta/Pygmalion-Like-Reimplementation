@@ -5,6 +5,7 @@ open Feliz
 
 open PygmalionReimplementation.State
 open PygmalionReimplementation.Icons
+open PygmalionReimplementation.Utils
 
 let private defaultUnaryOperators =
     [ "+"; "-"; "!" ]
@@ -244,51 +245,33 @@ let private customIconSpawnersView (state : State) (dispatch : Message -> unit) 
         ]
     Html.div ( state.CustomIcons
           |> Map.toList
-          |> List.filter (fun (name, _) -> name <> getMasterCustomIconName state)
+          |> List.filter (fun (name, _) -> name <> dummyCustomIconName)
           |> List.map
             (fun (id, icon) ->
                 customIconSpawnerView id icon) )
-
 let private constantSpawnerView (state : State) (dispatch : Message -> unit) : ReactElement =
-    let isNumber (text : string) =
-        match Int32.TryParse text with
-        | true, _ -> true
-        | _ -> false
-
     Html.div [
         prop.children [
-        Html.input [
-            prop.style [
-                style.width (length.percent 95)
+            Html.input [
+                prop.style [
+                    style.width (length.percent 95)
+                ]
+                prop.type' "number"
+                prop.placeholder "Constant"
+                prop.onTextChange (fun newText ->
+                    dispatch (ChangeConstantSpawnerText newText) )
             ]
-            prop.type' "number"
-            prop.placeholder "Constant"
-            prop.onTextChange (fun newText ->
-                dispatch (ChangeConstantSpawnerText newText) )
-        ]
-        Html.button [
-            prop.text "Pickup"
-            prop.onClick (fun _ ->
-                match state.ConstantSpawnerText with
-                | text when isNumber text ->
-                    dispatch (PickupIconParameter (Constant (int text)))
-                | _ -> () )
-            isNumber state.ConstantSpawnerText
-            |> not
-            |> prop.disabled
-        ]
-
-        ]
-    ]
-
-let private leftToolsView (state : State) (dispatch : Message -> unit) : ReactElement =
-    Html.div [
-        prop.style [
-            style.margin (length.px 5)
-        ]
-        prop.children [
-            defaultIconSpawnersView dispatch
-            constantSpawnerView state dispatch
+            Html.button [
+                prop.text "Pickup"
+                prop.onClick (fun _ ->
+                    match state.ConstantSpawnerText with
+                    | text when isNumber text ->
+                        dispatch (PickupIconParameter (Constant (int text)))
+                    | _ -> () )
+                isNumber state.ConstantSpawnerText
+                |> not
+                |> prop.disabled
+            ]
         ]
     ]
 
@@ -306,6 +289,119 @@ let private heldObjectView (state : State) =
         prop.text heldObjectToString
     ]
 
+let private tabView (state : State) (dispatch : Message -> unit) : ReactElement =
+    let tabViewStyle = [
+        style.display.flex
+        style.flexDirection.row
+        style.height (length.perc 100)
+        style.width (length.perc 100)
+    ]
+
+    let singleTabView (tabIndex : int) (tab : TabState) =
+        let isCurrentTab = tabIndex = state.CurrentTabIndex
+        let isMainTab = tabIndex = 0
+        let button =
+            Html.button [
+                prop.disabled isCurrentTab
+                prop.text tab.Name
+                prop.onClick (fun _ -> dispatch (SwitchToTab tabIndex))
+            ]
+        let removeButton =
+            Html.button [
+                prop.text "X"
+                prop.onClick (fun _ -> dispatch (RemoveTab tabIndex))
+
+            ]
+        Html.div [
+            prop.style [
+                style.marginRight (length.px 5)
+            ]
+            prop.children [
+                button
+                if not (isCurrentTab || isMainTab) then removeButton
+            ]
+        ]
+
+    Html.div [
+        prop.style tabViewStyle
+        prop.children (
+            state.Tabs
+            |> List.mapi singleTabView
+        )
+    ]
+
+let private customIconCreatorView (state : State) (dispatch : Message -> unit) : ReactElement =
+    let iconNameInput =
+        Html.input [
+            prop.style [
+                style.width (length.perc 90)
+            ]
+            prop.type' "text"
+            prop.placeholder "Icon Name"
+            prop.onTextChange (fun newText ->
+                dispatch (ChangeCustomIconCreatorName newText) )
+        ]
+    let iconParamCountInput =
+        Html.input [
+            prop.style [
+                style.width (length.perc 90)
+            ]
+            prop.type' "number"
+            prop.placeholder "Parameter Count"
+            prop.onTextChange (fun newText ->
+                dispatch (ChangeCustomIconCreatorParameterCount newText) )
+        ]
+    let createNewIconButton =
+        let isInputValid = isText state.CustomIconCreatorName && isNumber state.CustomIconCreatorParameterCount
+        Html.button [
+            prop.disabled (not isInputValid)
+            prop.text "New Icon"
+            prop.onClick (fun _ ->
+                dispatch (CreateCustomIcon(state.CustomIconCreatorName, int state.CustomIconCreatorParameterCount))
+            )
+        ]
+    Html.div [
+        prop.style [
+            style.display.flex
+            style.flexWrap.wrap
+        ]
+
+        prop.children [
+            iconNameInput
+            iconParamCountInput
+            createNewIconButton
+        ]
+    ]
+
+let customIconParametersView (state : State) (dispatch : Message -> unit) : ReactElement =
+    let drawParameter index (parameter : Lazy<int>) =
+        let parameterText =
+            if parameter.IsValueCreated then
+                sprintf "%d" parameter.Value
+            else
+                unknownIdentifier
+        Html.div [
+            prop.style [
+                style.width (length.px 30)
+                style.height (length.px 30)
+            ]
+            prop.text parameterText
+            prop.onClick (fun _ -> dispatch (PickupIconParameter (BaseIconParameter index)))
+        ]
+
+
+    Html.div [
+        prop.style [
+            style.display.flex
+            style.flexDirection.row
+        ]
+
+        prop.children
+            ( getCurrentTab state
+            |> fun tab -> tab.MasterCustomIconParameters
+            |> List.mapi drawParameter )
+    ]
+
 let renderIconCanvas (state : State) (dispatch : Message -> unit) : ReactElement =
     let canvasOnClick (e : Browser.Types.MouseEvent) =
         mouseEventPreventPropagation e
@@ -320,19 +416,25 @@ let renderIconCanvas (state : State) (dispatch : Message -> unit) : ReactElement
     ]
 
 let render (state : State) (dispatch : Message -> unit) : ReactElement =
-    let leftTools = "default-icon-spawners"
+    let defaultIconPicker = "default-icon-spawners"
     let canvas = "icon-canvas"
     let tabs = "tabs"
     let rightTools= "custom-icon-spawners"
+    let topBar = "top-bar"
+    let customIconCreator = "customIconCreator"
+    let constantSpawner = "constant-spawner"
+    let heldObject = "held-object"
 
     let rootStyle = [
             style.display.grid
             style.gridTemplateAreas [
-                [ leftTools; canvas; rightTools ]
-                [ leftTools; tabs; rightTools ]
+                [ defaultIconPicker; topBar; topBar; rightTools ]
+                [ defaultIconPicker; canvas; canvas; rightTools ]
+                [ constantSpawner; canvas; canvas; customIconCreator ]
+                [ constantSpawner; heldObject; tabs; customIconCreator ]
             ]
-            style.gridTemplateColumns [ length.percent 10; length.percent 80; length.percent 10]
-            style.gridTemplateRows [ length.vh 95; length.vh 5]
+            style.gridTemplateColumns [ length.vw 10; length.vw 10; length.vw 70; length.vw 10]
+            style.gridTemplateRows [ length.vh 5; length.vh 83; length.vh 6; length.vh 6]
         ]
     let gridArea (areaName : string) (element : ReactElement) =
         Html.div [
@@ -345,10 +447,14 @@ let render (state : State) (dispatch : Message -> unit) : ReactElement =
     Html.div [
         prop.style rootStyle
         prop.children [
-            gridArea leftTools (leftToolsView state dispatch)
+            gridArea heldObject (heldObjectView state)
+            gridArea topBar (customIconParametersView state dispatch)
+            gridArea defaultIconPicker (defaultIconSpawnersView dispatch)
             gridArea rightTools (customIconSpawnersView state dispatch)
             gridArea canvas (renderIconCanvas state dispatch)
-            gridArea tabs (heldObjectView state)
+            gridArea customIconCreator (customIconCreatorView state dispatch)
+            gridArea constantSpawner (constantSpawnerView state dispatch)
+            gridArea tabs (tabView state dispatch)
         ]
 
         prop.onContextMenu (fun e ->

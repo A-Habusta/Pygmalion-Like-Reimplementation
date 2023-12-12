@@ -1,5 +1,7 @@
 module PygmalionReimplementation.Utils
 
+open System
+
 let FalseValue = 0
 let TrueValue = 1
 
@@ -17,3 +19,19 @@ let binaryFuncInputConverter convertA convertB f a b =
     let a' = convertA a
     let b' = convertB b
     f a' b'
+
+let listRemoveIndex index list =
+    let rec listRemoveIndex' index list acc =
+        match list with
+        | [] -> acc
+        | x :: xs when index = 0 -> acc @ xs
+        | x :: xs -> listRemoveIndex' (index - 1) xs (acc @ [x])
+    listRemoveIndex' index list []
+
+let isNumber (text : string) =
+    match Int32.TryParse text with
+    | true, _ -> true
+    | _ -> false
+
+let isText (text : string) =
+    String.length text > 0

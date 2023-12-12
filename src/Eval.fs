@@ -3,7 +3,6 @@ module PygmalionReimplementation.Eval
 open PygmalionReimplementation.Icons
 open PygmalionReimplementation.Utils
 
-
 let getCorrectBoolBinaryOperation operatorString =
     let inputToBool = binaryFuncInputConverter intToBool intToBool
     let matchFunc =
@@ -39,7 +38,7 @@ let getCorrectBinaryOperation operator =
 
 type EvalContext =
     { CustomIcons : CustomIcons
-      ExecutingCustomIcon : CustomIconType
+      ExecutingCustomIconName : string
       CurrentIconID : IconID option
       Parameters : Lazy<int> list }
 
@@ -66,23 +65,28 @@ let evalIf condition trueBranch falseBranch paramEval results =
         (if conditionValue = FalseValue then falseBranch else trueBranch)
 
 
+let getCustomIcon (context : EvalContext) =
+    context.CustomIcons.[context.ExecutingCustomIconName]
+
+exception TrapException of EvalContext * IconResultsTable
+
 let evalCustomIcon (context : EvalContext) (customIconName : string) (parameters : Lazy<int> list) iconEval =
-    let customIcon = context.CustomIcons.[customIconName]
+    let customIcon = getCustomIcon(context)
     let nextIconID = customIcon.EntryPointIcon
     match nextIconID with
-    | None -> failwith "Custom icon has no entry point" // TODO handle better
+    | None -> raise (TrapException(context, Map.empty))
     | Some id ->
         let newContext =
             { context with
-                ExecutingCustomIcon = customIcon
-                CurrentIconID = Some(id)
+                ExecutingCustomIconName = customIconName
+                CurrentIconID = nextIconID
                 Parameters = parameters }
         iconEval newContext Map.empty id
 
 let getIconInstructionFromID (context : EvalContext) (id : IconID) =
-    context.ExecutingCustomIcon.SavedIcons[id].IconInstruction
+    getCustomIcon context
+    |> fun customIcon -> customIcon.SavedIcons[id].IconInstruction
 
-exception TrapException of EvalContext * IconResultsTable
 
 let trap (context : EvalContext) (results : IconResultsTable) =
     TrapException(context, results)
@@ -94,7 +98,7 @@ let createContextForCustomIcon
     (parameters : Lazy<int> list) =
         let newIcon = oldContext.CustomIcons[typeName]
         { oldContext with
-            ExecutingCustomIcon = newIcon
+            ExecutingCustomIconName = typeName
             CurrentIconID = newIcon.EntryPointIcon
             Parameters = parameters }
 
@@ -118,7 +122,13 @@ let eval (context : EvalContext) (targetID : IconID) =
         | CallCustomIcon(typeName, parameters) ->
             let lazyParameters =
                 parameters
-                |> List.map (fun param -> lazy (boundParamEval results param |> fst) )
+                |> List.map (fun param ->
+                    let lazyParam = lazy (boundParamEval results param |> fst)
+                    match param with
+                    | Constant _ ->
+                        ignore (lazyParam.Force ()) // Force evalution since it's a constant
+                        lazyParam
+                    | _ -> lazyParam)
             let newContext = createContextForCustomIcon context typeName lazyParameters
             evalCustomIcon newContext typeName lazyParameters internalEval
         | TopLevelTrap -> trap context results
