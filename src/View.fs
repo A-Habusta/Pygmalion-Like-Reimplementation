@@ -137,16 +137,16 @@ let private renderIcon
                     |> decorateIcon icon )
             ]
     let renderIconActions =
-        let specialActionText =
-            match getIconResultFromState state id with
-            | Some _ -> "Get Reference"
-            | None -> "Evaluate"
-        let specialActionHandler (e : Browser.Types.MouseEvent) =
-            mouseEventPreventPropagation e
-            match getIconResultFromState state id with
-            | Some _ -> PickupIconParameter (LocalIconInstructionReference id)
-            | None -> EvaluateIcon id
-            |> dispatch
+        let getReferenceHandler =
+            fun e ->
+                dispatch (PickupIconParameter (LocalIconInstructionReference(id)))
+        let evalHandler =
+            fun e ->
+                mouseEventPreventPropagation e
+                dispatch (EvaluateIcon(id))
+
+        let iconIsEvaluated = Option.isSome (getIconResultFromState state id)
+
         Html.div [
             prop.style [
                 style.display.flex
@@ -160,9 +160,14 @@ let private renderIcon
                     prop.disabled (iconIsHeld state id)
                 ]
                 Html.button [
-                    prop.text specialActionText
-                    prop.onClick specialActionHandler
+                    prop.text "Get Reference"
+                    prop.onClick getReferenceHandler
                     prop.disabled (iconIsHeld state id)
+                ]
+                Html.button [
+                    prop.text "Eval"
+                    prop.onClick evalHandler
+                    prop.disabled (iconIsHeld state id || iconIsEvaluated)
                 ]
                 Html.button [
                     prop.text "Move"
@@ -191,7 +196,6 @@ let private renderIconInstances (state : State) (dispatch : Message -> unit) : R
     getIconTableFromState state
     |> Map.toList
     |> List.map (fun (id, icon) -> renderIcon icon id state dispatch)
-
 
 let private defaultIconSpawnersView (dispatch : Message -> unit) : ReactElement =
     let spawnerView (text : string) (iconType : IconType) (dispatch : Message -> unit) : ReactElement =

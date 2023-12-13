@@ -312,6 +312,7 @@ let update (message : Message) (state : State) : State =
             state
         | _ ->
             { state with CurrentTabIndex = index }
+            |> removeHeldObject
     | CreateCustomIcon(name, parameterCount) ->
         match Map.tryFind name state.CustomIcons with
         | Some _ ->
