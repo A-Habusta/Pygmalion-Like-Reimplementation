@@ -388,6 +388,8 @@ let customIconParametersView (state : State) (dispatch : Message -> unit) : Reac
             prop.style [
                 style.width (length.px 30)
                 style.height (length.px 30)
+                defaultBorder
+                style.textAlign.center
             ]
             prop.text parameterText
             prop.onClick (fun _ -> dispatch (PickupIconParameter (BaseIconParameter index)))
