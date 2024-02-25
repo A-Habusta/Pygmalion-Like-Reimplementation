@@ -14,14 +14,12 @@ let private defaultBinaryOperators =
 
 let private unknownIdentifier = "?"
 
-let defaultBorder = style.border (length.px 1, borderStyle.solid, "black")
-
 let private stateIsHoldingObject (state : State) =
     match state.HeldObject with
     | NoObject -> false
     | _ -> true
 
-let iconIsHeld (state : State) (id : IconID) =
+let private iconIsHeld (state : State) (id : IconID) =
     match state.HeldObject with
     | ExistingIcon heldId -> heldId = id
     | _ -> false
@@ -51,54 +49,38 @@ let private renderIcon
     (dispatch : Message -> unit) : ReactElement =
     let renderIconIOField =
         let renderParameter (index : int) (parameter : IconInstructionParameter) =
-            let parameterBoxSize = 30
-            let parameterStyle = [
-                style.minWidth (length.px parameterBoxSize)
-                style.height (length.px parameterBoxSize)
-                style.margin (length.px 2)
-                style.display.flex
-                defaultBorder
-            ]
             let deleteButton =
                 Html.div [
                     prop.text "X"
                     prop.onClick (fun e ->
                         mouseEventPreventPropagation e
                         dispatch (RemoveIconParameter(id, index)) )
-                    prop.style [
-                        style.fontSize (length.px 6)
-                        style.position.absolute
-                    ]
+                    prop.className "icon-parameter-delete"
                 ]
             let text =
                 Html.div [
                     prop.text (parameterToString state parameter)
-                    prop.style [
-                        style.alignSelf.center
+                    prop.className "icon-parameter-text"
+                ]
+            let parameter =
+                Html.div [
+                    prop.onClick (fun e ->
+                        mouseEventPreventPropagation e
+                        dispatch (PlacePickup(IconParameter(id, index))) )
+                    prop.children [
+                        text
+                        if parameter <> Trap then
+                            deleteButton
                     ]
+                    prop.className "icon-parameter"
                 ]
-
-            Html.div [
-                prop.style parameterStyle
-                prop.onClick (fun e ->
-                    mouseEventPreventPropagation e
-                    dispatch (PlacePickup(IconParameter(id, index))) )
-                prop.children [
-                    text
-                    if parameter <> Trap then
-                        deleteButton
-                ]
-            ]
+            parameter
 
         let decorateIcon (icon : DrawnIcon) (renderedParameters : ReactElement list) =
             let iconDecoratorText (text : string) =
-                let boldWeight = 700
                 Html.div [
                     prop.text text
-                    prop.style [
-                        style.margin (length.px 5)
-                        style.fontWeight boldWeight
-                    ]
+                    prop.className "icon-decorator"
                 ]
 
             match icon.IconInstruction with
@@ -118,79 +100,91 @@ let private renderIcon
                 iconDecoratorText name :: renderedParameters
             | TopLevelTrap -> [ Html.text "Trap" ]
 
-        match getIconResultFromState state id with
-        | Some result ->
-            Html.div [
-                prop.style [
-                    style.margin (length.px 5)
+        let IOField =
+            match getIconResultFromState state id with
+            | Some result ->
+                Html.div [
+                    prop.className "icon-result"
+                    prop.text (sprintf "%d" result)
                 ]
-                prop.text (sprintf "%d" result)
-            ]
-        | None ->
-            Html.div [
-                prop.style [
-                    style.display.flex
-                    style.alignContent.center
+            | None ->
+                Html.div [
+                    prop.className "icon-io-field"
+                    prop.children (
+                        List.mapi renderParameter (extractInstructionParameters icon.IconInstruction)
+                        |> decorateIcon icon )
                 ]
-                prop.children (
-                    List.mapi renderParameter (extractInstructionParameters icon.IconInstruction)
-                    |> decorateIcon icon )
-            ]
+        IOField
+
     let renderIconActions =
-        let getReferenceHandler =
-            fun e ->
-                dispatch (PickupIconParameter (LocalIconInstructionReference(id)))
-        let evalHandler =
-            fun e ->
-                mouseEventPreventPropagation e
-                dispatch (EvaluateIcon(id))
+        let removeHandler e =
+            mouseEventPreventPropagation e
+            dispatch (RemoveIcon id)
+        let getReferenceHandler e =
+            dispatch (PickupIconParameter (LocalIconInstructionReference(id)))
+        let evalHandler e =
+            mouseEventPreventPropagation e
+            dispatch (EvaluateIcon(id))
+        let moveHandler e =
+            mouseEventPreventPropagation e
+            dispatch (PickupIcon id)
 
         let iconIsEvaluated = Option.isSome (getIconResultFromState state id)
 
+        let removeButton =
+            Html.button [
+                prop.text "Remove"
+                prop.onClick removeHandler
+                prop.disabled (iconIsHeld state id)
+                prop.className "icon-remove-button"
+            ]
+        let getReferenceButton =
+            Html.button [
+                prop.text "Get Reference"
+                prop.onClick getReferenceHandler
+                prop.disabled (iconIsHeld state id)
+                prop.className "icon-get-reference-button"
+            ]
+        let evalButton =
+            Html.button [
+                prop.text "Eval"
+                prop.onClick evalHandler
+                prop.disabled (iconIsHeld state id || iconIsEvaluated)
+                prop.className "icon-eval-button"
+            ]
+        let moveButton =
+            Html.button [
+                prop.text "Move"
+                prop.onClick moveHandler
+                prop.disabled (iconIsHeld state id)
+                prop.className "icon-move-button"
+            ]
+        let buttons =
+            Html.div [
+                prop.className "icon-button-container"
+                prop.children [
+                    removeButton
+                    getReferenceButton
+                    evalButton
+                    moveButton
+                ]
+            ]
+
+        buttons
+
+    let icon =
         Html.div [
+            prop.className "icon"
             prop.style [
-                style.display.flex
+                style.left (length.px icon.X)
+                style.top (length.px icon.Y)
             ]
             prop.children [
-                Html.button [
-                    prop.text "Remove"
-                    prop.onClick (fun e ->
-                        mouseEventPreventPropagation e
-                        dispatch (RemoveIcon id) )
-                    prop.disabled (iconIsHeld state id)
-                ]
-                Html.button [
-                    prop.text "Get Reference"
-                    prop.onClick getReferenceHandler
-                    prop.disabled (iconIsHeld state id)
-                ]
-                Html.button [
-                    prop.text "Eval"
-                    prop.onClick evalHandler
-                    prop.disabled (iconIsHeld state id || iconIsEvaluated)
-                ]
-                Html.button [
-                    prop.text "Move"
-                    prop.onClick (fun e ->
-                        mouseEventPreventPropagation e
-                        dispatch (PickupIcon id) )
-                    prop.disabled (iconIsHeld state id)
-                ]
+                renderIconIOField
+                renderIconActions
             ]
         ]
-    Html.div [
-        prop.style [
-            style.position.absolute
-            style.display.flex
-            style.left (length.px icon.X)
-            style.top (length.px icon.Y)
-            defaultBorder
-        ]
-        prop.children [
-            renderIconIOField
-            renderIconActions
-        ]
-    ]
+    icon
 
 let private renderIconInstances (state : State) (dispatch : Message -> unit) : ReactElement list =
     getIconTableFromState state
@@ -200,9 +194,7 @@ let private renderIconInstances (state : State) (dispatch : Message -> unit) : R
 let private defaultIconSpawnersView (dispatch : Message -> unit) : ReactElement =
     let spawnerView (text : string) (iconType : IconType) (dispatch : Message -> unit) : ReactElement =
         Html.button [
-            prop.style [
-                style.width (length.px 30)
-            ]
+            prop.className "spawner-button"
             prop.text text
             prop.onClick (fun _ -> dispatch (PickupNewIcon iconType))
         ]
@@ -219,53 +211,63 @@ let private defaultIconSpawnersView (dispatch : Message -> unit) : ReactElement 
                 prop.children (spawnerList iconSource)
             ]
         ]
-    Html.div [
-        spawnerListTemplate
-            "Unary"
-            (fun op -> BaseUnaryIcon op)
-            defaultUnaryOperators
-        spawnerListTemplate
-            "Binary"
-            (fun op -> BaseBinaryIcon op)
-            defaultBinaryOperators
-        spawnerListTemplate
-            "Special"
-            (fun _ -> BaseIfIcon)
-            [ "If" ]
-    ]
+    let defaultIconSpawners =
+        Html.div [
+            prop.id "default-icon-spawners"
+            prop.children [
+                spawnerListTemplate
+                    "Unary"
+                    (fun op -> BaseUnaryIcon op)
+                    defaultUnaryOperators
+                spawnerListTemplate
+                    "Binary"
+                    (fun op -> BaseBinaryIcon op)
+                    defaultBinaryOperators
+                spawnerListTemplate
+                    "Special"
+                    (fun _ -> BaseIfIcon)
+                    [ "If" ]
+            ]
+        ]
+    defaultIconSpawners
 
 let private customIconSpawnersView (state : State) (dispatch : Message -> unit) : ReactElement =
     let customIconSpawnerView (iconTypeName : string) (iconType : CustomIconType) =
         Html.div [
-            Html.button [
-                prop.text iconTypeName
-                prop.onClick (fun _ -> dispatch (PickupNewIcon (CustomIcon (iconTypeName, iconType.ParameterCount))))
-            ]
-            Html.button [
-                prop.text "Edit"
-                // TODO
-                prop.onClick (fun _ -> dispatch (NotImplemented "Edit custom icon"))
+            prop.id "custom-icon-spawners"
+            prop.children [
+                Html.button [
+                    prop.text iconTypeName
+                    prop.onClick (fun _ -> dispatch (PickupNewIcon (CustomIcon (iconTypeName, iconType.ParameterCount))))
+                ]
+                Html.button [
+                    prop.text "Edit"
+                    // TODO
+                    prop.onClick (fun _ -> dispatch (NotImplemented "Edit custom icon"))
+                ]
             ]
         ]
-    Html.div ( state.CustomIcons
-          |> Map.toList
-          |> List.filter (fun (name, _) -> name <> dummyCustomIconName)
-          |> List.map
-            (fun (id, icon) ->
-                customIconSpawnerView id icon) )
+    let customIconsSpawners =
+        Html.div ( state.CustomIcons
+            |> Map.toList
+            |> List.filter (fun (name, _) -> name <> dummyCustomIconName)
+            |> List.map
+                (fun (id, icon) ->
+                    customIconSpawnerView id icon) )
+    customIconsSpawners
 let private constantSpawnerView (state : State) (dispatch : Message -> unit) : ReactElement =
     Html.div [
+        prop.id "constant-spawner"
         prop.children [
             Html.input [
-                prop.style [
-                    style.width (length.percent 95)
-                ]
+                prop.className "constant-spawner-text"
                 prop.type' "number"
                 prop.placeholder "Constant"
                 prop.onTextChange (fun newText ->
                     dispatch (ChangeConstantSpawnerText newText) )
             ]
             Html.button [
+                prop.className "constant-spawner-button"
                 prop.text "Pickup"
                 prop.onClick (fun _ ->
                     match state.ConstantSpawnerText with
@@ -289,18 +291,15 @@ let private heldObjectView (state : State) =
         | ExistingIcon _ -> "Moving existing icon"
         | _ -> String.Empty
 
-    Html.div [
-        prop.text heldObjectToString
-    ]
+    let heldObject =
+        Html.div [
+            prop.id "held-object"
+            prop.text heldObjectToString
+        ]
+
+    heldObject
 
 let private tabView (state : State) (dispatch : Message -> unit) : ReactElement =
-    let tabViewStyle = [
-        style.display.flex
-        style.flexDirection.row
-        style.height (length.perc 100)
-        style.width (length.perc 100)
-    ]
-
     let singleTabView (tabIndex : int) (tab : TabState) =
         let isCurrentTab = tabIndex = state.CurrentTabIndex
         let isMainTab = tabIndex = 0
@@ -316,30 +315,31 @@ let private tabView (state : State) (dispatch : Message -> unit) : ReactElement 
                 prop.onClick (fun _ -> dispatch (RemoveTab tabIndex))
 
             ]
+        let tab =
+            Html.div [
+                prop.className "tab"
+                prop.children [
+                    button
+                    if not (isCurrentTab || isMainTab) then removeButton
+                ]
+            ]
+        tab
+
+    let tabs =
         Html.div [
-            prop.style [
-                style.marginRight (length.px 5)
-            ]
-            prop.children [
-                button
-                if not (isCurrentTab || isMainTab) then removeButton
-            ]
+            prop.id "tabs"
+            prop.children (
+                state.Tabs
+                |> List.mapi singleTabView
+            )
         ]
 
-    Html.div [
-        prop.style tabViewStyle
-        prop.children (
-            state.Tabs
-            |> List.mapi singleTabView
-        )
-    ]
+    tabs
 
 let private customIconCreatorView (state : State) (dispatch : Message -> unit) : ReactElement =
     let iconNameInput =
         Html.input [
-            prop.style [
-                style.width (length.perc 90)
-            ]
+            prop.className "custom-icon-creator-name-input"
             prop.type' "text"
             prop.placeholder "Icon Name"
             prop.onTextChange (fun newText ->
@@ -347,9 +347,7 @@ let private customIconCreatorView (state : State) (dispatch : Message -> unit) :
         ]
     let iconParamCountInput =
         Html.input [
-            prop.style [
-                style.width (length.perc 90)
-            ]
+            prop.className "custom-icon-creator-param-count-input"
             prop.type' "number"
             prop.placeholder "Parameter Count"
             prop.onTextChange (fun newText ->
@@ -364,20 +362,19 @@ let private customIconCreatorView (state : State) (dispatch : Message -> unit) :
                 dispatch (CreateCustomIcon(state.CustomIconCreatorName, int state.CustomIconCreatorParameterCount))
             )
         ]
-    Html.div [
-        prop.style [
-            style.display.flex
-            style.flexWrap.wrap
+    let customIconCreator =
+        Html.div [
+            prop.id "custom-icon-creator"
+            prop.children [
+                iconNameInput
+                iconParamCountInput
+                createNewIconButton
+            ]
         ]
 
-        prop.children [
-            iconNameInput
-            iconParamCountInput
-            createNewIconButton
-        ]
-    ]
+    customIconCreator
 
-let customIconParametersView (state : State) (dispatch : Message -> unit) : ReactElement =
+let tabParametersView (state : State) (dispatch : Message -> unit) : ReactElement =
     let drawParameter index (parameter : Lazy<int>) =
         let parameterText =
             if parameter.IsValueCreated then
@@ -385,82 +382,44 @@ let customIconParametersView (state : State) (dispatch : Message -> unit) : Reac
             else
                 unknownIdentifier
         Html.div [
-            prop.style [
-                style.width (length.px 30)
-                style.height (length.px 30)
-                defaultBorder
-                style.textAlign.center
-            ]
+            prop.className "tab-parameter"
             prop.text parameterText
             prop.onClick (fun _ -> dispatch (PickupIconParameter (BaseIconParameter index)))
         ]
-
-
-    Html.div [
-        prop.style [
-            style.display.flex
-            style.flexDirection.row
+    let parameters =
+        Html.div [
+            prop.id "tab-parameters"
+            prop.children
+                ( getCurrentTab state
+                |> fun tab -> tab.MasterCustomIconParameters
+                |> List.mapi drawParameter )
         ]
-
-        prop.children
-            ( getCurrentTab state
-            |> fun tab -> tab.MasterCustomIconParameters
-            |> List.mapi drawParameter )
-    ]
+    parameters
 
 let renderIconCanvas (state : State) (dispatch : Message -> unit) : ReactElement =
     let canvasOnClick (e : Browser.Types.MouseEvent) =
         mouseEventPreventPropagation e
         dispatch (PlacePickup (Position (int e.clientX, int e.clientY)))
-    Html.div [
-        prop.style [
-            style.height (length.perc 100)
-            style.width (length.perc 100)
+    let canvas =
+        Html.div [
+            prop.id "icon-canvas"
+            prop.onClick canvasOnClick
+            prop.children (renderIconInstances state dispatch)
         ]
-        prop.onClick canvasOnClick
-        prop.children (renderIconInstances state dispatch)
-    ]
+    canvas
 
 let render (state : State) (dispatch : Message -> unit) : ReactElement =
-    let defaultIconPicker = "default-icon-spawners"
-    let canvas = "icon-canvas"
-    let tabs = "tabs"
-    let rightTools= "custom-icon-spawners"
-    let topBar = "top-bar"
-    let customIconCreator = "customIconCreator"
-    let constantSpawner = "constant-spawner"
-    let heldObject = "held-object"
-
-    let rootStyle = [
-            style.display.grid
-            style.gridTemplateAreas [
-                [ defaultIconPicker; topBar; topBar; rightTools ]
-                [ defaultIconPicker; canvas; canvas; rightTools ]
-                [ constantSpawner; canvas; canvas; customIconCreator ]
-                [ constantSpawner; heldObject; tabs; customIconCreator ]
-            ]
-            style.gridTemplateColumns [ length.vw 10; length.vw 10; length.vw 70; length.vw 10]
-            style.gridTemplateRows [ length.vh 5; length.vh 83; length.vh 6; length.vh 6]
-        ]
-    let gridArea (areaName : string) (element : ReactElement) =
-        Html.div [
-            prop.style [
-                style.gridArea areaName
-                defaultBorder
-            ]
-            prop.children [ element ]
-        ]
     Html.div [
-        prop.style rootStyle
+        prop.id "root-container"
         prop.children [
-            gridArea heldObject (heldObjectView state)
-            gridArea topBar (customIconParametersView state dispatch)
-            gridArea defaultIconPicker (defaultIconSpawnersView dispatch)
-            gridArea rightTools (customIconSpawnersView state dispatch)
-            gridArea canvas (renderIconCanvas state dispatch)
-            gridArea customIconCreator (customIconCreatorView state dispatch)
-            gridArea constantSpawner (constantSpawnerView state dispatch)
-            gridArea tabs (tabView state dispatch)
+            heldObjectView state
+            tabParametersView state dispatch
+            defaultIconSpawnersView dispatch
+            customIconSpawnersView state dispatch
+            renderIconCanvas state dispatch
+            customIconCreatorView state dispatch
+            constantSpawnerView state dispatch
+            tabView state dispatch
         ]
 
         prop.onContextMenu (fun e ->

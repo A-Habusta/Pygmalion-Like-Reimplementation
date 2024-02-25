@@ -1,0 +1,171 @@
+:root {
+    --parameter-box-size: 30px;
+    --default-border: 1px solid black;
+    --bold-weight: 700;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+}
+
+* {
+    -webkit-user-select: none; /* Safari */
+    -ms-user-select: none; /* IE 10 and IE 11 */
+    user-select: none; /* Standard syntax */
+}
+
+
+.icon {
+    position: absolute;
+    display: flex;
+}
+
+.icon-button-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.icon-remove-button,
+.icon-get-reference-button,
+.icon-eval-button,
+.icon-move-button {
+    border: var(--default-border);
+}
+
+.icon-decorator {
+    margin: 5px;
+    font-weight: var(--bold-weight);
+}
+
+.icon-parameter {
+    display: flex;
+    min-width: var(--parameter-box-size);
+    height: var(--parameter-box-size);
+    margin: 2px;
+
+    border: var(--default-border);
+}
+
+.icon-parameter-delete {
+    position: absolute;
+    font-size: 5px;
+}
+
+.icon-parameter-text {
+    align-self: center;
+}
+
+.icon-io-field {
+    display: flex;
+    align-content: center;
+}
+
+.icon-result {
+    margin: 5px;
+}
+
+
+.spawner-button {
+    width: 30px;
+}
+
+
+.tab {
+    margin-right: 5px;
+}
+
+#tabs {
+    grid-area: tabs;
+    border: var(--default-border);
+
+    display: flex;
+    flex-direction: row;
+    height: 100%;
+    width: 100%;
+}
+
+
+.tab-parameter {
+    width: var(--parameter-box-size);
+    height: var(--parameter-box-size);
+    text-align: center;
+    border: var(--default-border);
+}
+
+#tab-parameters {
+    grid-area: tab-parameters;
+    border: var(--default-border);
+
+    display: flex;
+    flex-direction: row;
+}
+
+
+.constant-spawner-text {
+    width: 95%;
+}
+
+#constant-spawner {
+    grid-area: constant-spawner;
+    border: var(--default-border);
+}
+
+
+#custom-icon-spawners {
+    grid-area: custom-icon-picker;
+    border: var(--default-border);
+}
+
+
+.custom-icon-creator-name-input {
+    width: 90%;
+}
+
+.custom-icon-creator-param-count-input {
+    width: 90%;
+}
+
+#custom-icon-creator {
+    grid-area: custom-icon-creator;
+    border: var(--default-border);
+
+    display: flex;
+    flex-wrap: wrap;
+}
+
+
+#held-object {
+    grid-area: held-object;
+    border: var(--default-border);
+}
+
+
+#default-icon-spawners {
+    grid-area: default-icon-picker;
+    border: var(--default-border);
+}
+
+
+#icon-canvas {
+    grid-area: canvas;
+    border: var(--default-border);
+
+    height: 100%;
+    width: 100%;
+}
+
+
+#root-container {
+    display: grid;
+    grid-template-areas:
+        "default-icon-picker tab-parameters tab-parameters custom-icon-picker"
+        "default-icon-picker canvas canvas custom-icon-picker"
+        "constant-spawner canvas canvas custom-icon-creator"
+        "constant-spawner held-object tabs custom-icon-creator";
+    grid-template-columns: 10% 10% 70% 10%;
+    grid-template-rows: 5% 83% 6% 6%;
+
+}
