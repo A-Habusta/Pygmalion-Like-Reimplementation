@@ -314,13 +314,17 @@ let update (message : Message) (state : State) : State =
         | _ ->
             state
     | EditCustomIcon name ->
-        let newTab =
-            { Name = name
-              MasterCustomIconName = name
-              MasterCustomIconParameters = List.empty
-              IconResultData = Map.empty }
+        match Map.tryFind name state.CustomIcons with
+        | Some _ ->
+            let newTab =
+                { Name = name
+                  MasterCustomIconName = name
+                  MasterCustomIconParameters = List.empty
+                  IconResultData = Map.empty }
 
-        { state with Tabs = state.Tabs @ [ newTab ] }
+            { state with Tabs = state.Tabs @ [ newTab ] }
+        | None ->
+            state
 
     | CreateCustomIcon(name, parameterCount) ->
         match Map.tryFind name state.CustomIcons with
