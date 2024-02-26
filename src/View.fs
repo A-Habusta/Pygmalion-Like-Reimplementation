@@ -242,8 +242,7 @@ let private customIconSpawnersView (state : State) (dispatch : Message -> unit) 
                 ]
                 Html.button [
                     prop.text "Edit"
-                    // TODO
-                    prop.onClick (fun _ -> dispatch (NotImplemented "Edit custom icon"))
+                    prop.onClick (fun _ -> dispatch (EditCustomIcon iconTypeName))
                 ]
             ]
         ]

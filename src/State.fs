@@ -47,6 +47,7 @@ type Message =
     | SwitchToTab of index : int
     | RemoveTab of index : int
     | CreateCustomIcon of Name : string * ParameterCount : int
+    | EditCustomIcon of Name : string
     | NotImplemented of message : string
 
 let getCurrentTab (state : State) =
@@ -258,7 +259,6 @@ let update (message : Message) (state : State) : State =
                 None
     match message with
     | EvaluateIcon id ->
-        // TODO: Add error handling
         try
             evalIconFromState state id
         with TrapException(context, partialResults) ->
@@ -308,11 +308,20 @@ let update (message : Message) (state : State) : State =
         { state with CustomIconCreatorParameterCount = count }
     | SwitchToTab index ->
         match index with
-        | i when i < 0 || i >= state.Tabs.Length ->
-            state
-        | _ ->
+        | i when i >= 0 && i < state.Tabs.Length ->
             { state with CurrentTabIndex = index }
             |> removeHeldObject
+        | _ ->
+            state
+    | EditCustomIcon name ->
+        let newTab =
+            { Name = name
+              MasterCustomIconName = name
+              MasterCustomIconParameters = List.empty
+              IconResultData = Map.empty }
+
+        { state with Tabs = state.Tabs @ [ newTab ] }
+
     | CreateCustomIcon(name, parameterCount) ->
         match Map.tryFind name state.CustomIcons with
         | Some _ ->
