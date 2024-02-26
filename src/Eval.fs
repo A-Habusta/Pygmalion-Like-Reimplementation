@@ -40,7 +40,8 @@ type EvalContext =
     { CustomIcons : CustomIcons
       ExecutingCustomIconName : string
       CurrentIconID : IconID option
-      Parameters : Lazy<int> list }
+      Parameters : Lazy<int> list
+      RecursionDepth : int }
 
 let evalUnary operator rawOperand paramEval results =
     let (operand, resultsTable) = paramEval results rawOperand
@@ -91,7 +92,7 @@ let trap (context : EvalContext) (results : IconResultsTable) =
     TrapException(context, results)
     |> raise
 
-let createContextForCustomIcon
+let createNewContextForCustomIcon
     (oldContext : EvalContext)
     (typeName : string)
     (parameters : Lazy<int> list) =
@@ -99,7 +100,8 @@ let createContextForCustomIcon
         { oldContext with
             ExecutingCustomIconName = typeName
             CurrentIconID = newIcon.EntryPointIcon
-            Parameters = parameters }
+            Parameters = parameters
+            RecursionDepth = oldContext.RecursionDepth + 1 }
 
 let eval (context : EvalContext) (targetID : IconID) =
     let rec internalEval (context : EvalContext) (results : IconResultsTable) (targetID : IconID) : IconResultsTable =
@@ -144,7 +146,7 @@ let eval (context : EvalContext) (targetID : IconID) =
                         ignore (lazyParam.Force ()) // Force evalution since it's a constant
                         lazyParam
                     | _ -> lazyParam)
-            let newContext = createContextForCustomIcon context typeName lazyParameters
+            let newContext = createNewContextForCustomIcon context typeName lazyParameters
             evalCustomIcon newContext typeName lazyParameters internalEval
             |> saveCustomIconOutput newContext parameters
         | TopLevelTrap -> trap context results

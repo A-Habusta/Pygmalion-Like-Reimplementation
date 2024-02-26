@@ -148,7 +148,8 @@ let private evalIconFromState (state : State) (id : IconID) =
         { CustomIcons = state.CustomIcons
           ExecutingCustomIconName = (getCurrentTab state).MasterCustomIconName
           CurrentIconID = Some id
-          Parameters = getMasterCustomIconParameters state }
+          Parameters = getMasterCustomIconParameters state
+          RecursionDepth = 0 }
     stateWithMergedIconResults (eval context id) state
 
 let private removeIconReferencesFromTable (targetID : IconID) (table : IconTable) : IconTable =
@@ -193,9 +194,6 @@ let unevaluateAllMatchingTabs (masterIconName : string) (state : State) =
                 else
                     tab ) }
 
-let addNewTab (tab : TabState) (state : State) =
-    { state with
-        Tabs = state.Tabs @ [ tab ] }
 
 let dummyCustomIconName = randomNameGenerator 32
 let private dummyCustomIcon : CustomIconType =
@@ -226,6 +224,18 @@ let init () : State =
 let update (message : Message) (state : State) : State =
     let removeHeldObject (state : State) =
         {state with HeldObject = NoObject}
+    let addNewTab (tab : TabState) (state : State) =
+        { state with
+            Tabs = state.Tabs @ [ tab ] }
+    let switchToTab (index : int) (state : State) =
+        match index with
+        | i when i >= 0 && i < state.Tabs.Length ->
+            { state with CurrentTabIndex = index }
+            |> removeHeldObject
+        | _ ->
+            state
+    let switchToLastTab (state : State) =
+        switchToTab (state.Tabs.Length - 1) state
     let placePickup (targetLocation : MovableObjectTarget) =
         match state.HeldObject with
         | NoObject ->
@@ -262,14 +272,17 @@ let update (message : Message) (state : State) : State =
         try
             evalIconFromState state id
         with TrapException(context, partialResults) ->
-            let newTab =
-                { Name = context.ExecutingCustomIconName
-                  MasterCustomIconName = context.ExecutingCustomIconName
-                  MasterCustomIconParameters = context.Parameters
-                  IconResultData = partialResults }
-            state
-            |> addNewTab newTab
-            |> fun state -> { state with CurrentTabIndex = state.Tabs.Length - 1 }
+            if context.RecursionDepth = 0 then
+                state
+            else
+                let newTab =
+                    { Name = context.ExecutingCustomIconName
+                      MasterCustomIconName = context.ExecutingCustomIconName
+                      MasterCustomIconParameters = context.Parameters
+                      IconResultData = partialResults }
+                state
+                |> addNewTab newTab
+                |> switchToLastTab
 
     | PickupNewIcon iconType ->
         {state with HeldObject = NewIcon iconType}
@@ -307,22 +320,18 @@ let update (message : Message) (state : State) : State =
     | ChangeCustomIconCreatorParameterCount count ->
         { state with CustomIconCreatorParameterCount = count }
     | SwitchToTab index ->
-        match index with
-        | i when i >= 0 && i < state.Tabs.Length ->
-            { state with CurrentTabIndex = index }
-            |> removeHeldObject
-        | _ ->
-            state
+        switchToTab index state
     | EditCustomIcon name ->
         match Map.tryFind name state.CustomIcons with
-        | Some _ ->
+        | Some customIcon ->
             let newTab =
                 { Name = name
                   MasterCustomIconName = name
-                  MasterCustomIconParameters = List.empty
+                  MasterCustomIconParameters = List.init customIcon.ParameterCount (fun _ -> lazy 0)
                   IconResultData = Map.empty }
-
-            { state with Tabs = state.Tabs @ [ newTab ] }
+            state
+            |> addNewTab newTab
+            |> switchToLastTab
         | None ->
             state
 
