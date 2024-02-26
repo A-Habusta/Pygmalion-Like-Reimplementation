@@ -176,14 +176,6 @@ let isCurrentEntryPoint (id : IconID) (state : State) =
     getMasterCustomIcon state
     |> fun icon -> icon.EntryPointIcon = Some id
 
-
-let randomNameGenerator len =
-    let charSet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-    Random ()
-    |> fun rand ->
-        [| for i in 1 .. len -> charSet.[rand.Next(charSet.Length)] |]
-    |> String
-
 let unevaluateAllMatchingTabs (masterIconName : string) (state : State) =
     { state with
         Tabs =
@@ -194,8 +186,16 @@ let unevaluateAllMatchingTabs (masterIconName : string) (state : State) =
                 else
                     tab ) }
 
+let private addCustomIfIcons id (state : State) =
+    //TODO: IMPLEMENT
+    state
 
-let dummyCustomIconName = randomNameGenerator 32
+let private removeCustomIfIcons id (state : State) =
+    //TODO: IMPLEMENT
+    state
+
+let dummyCustomIconName = "_main"
+
 let private dummyCustomIcon : CustomIconType =
     { ParameterCount = 0
       SavedIcons = Map.empty
@@ -243,8 +243,10 @@ let update (message : Message) (state : State) : State =
         | NewIcon newIconType ->
             match targetLocation with
             | Position (x, y) ->
+                let newID = newIconID ()
                 createDrawnIcon x y newIconType
-                |> stateWithNewIcon state (newIconID ())
+                |> stateWithNewIcon state newID
+                |> if newIconType = BaseIfIcon then addCustomIfIcons newID else id
                 |> Some
             | _ ->
                 None
@@ -298,16 +300,25 @@ let update (message : Message) (state : State) : State =
             removeHeldObject newState
         | None -> state
     | RemoveIcon id ->
-        getIconTableFromState state
-        |> Map.remove id
-        |> removeIconReferencesFromTable id
-        |> stateWithNewIconTable state
-        |> unevaluateAllMatchingTabs (getMasterCustomIconName state)
-        |> fun newState ->
-            if isCurrentEntryPoint id newState then
-                newState |> stateWithNewEntryPoint None
-            else
-                newState
+        let iconTable = getIconTableFromState state
+        let iconType = iconTable |> Map.find id |> fun icon -> icon.IconType
+        let stateWithRemovedIcon =
+            iconTable
+            |> Map.remove id
+            |> removeIconReferencesFromTable id
+            |> stateWithNewIconTable state
+            |> unevaluateAllMatchingTabs (getMasterCustomIconName state)
+            |> fun newState ->
+                if isCurrentEntryPoint id newState then
+                    newState |> stateWithNewEntryPoint None
+                else
+                    newState
+        match iconType with
+        | BaseIfIcon ->
+            removeCustomIfIcons id stateWithRemovedIcon
+        | _ ->
+            stateWithRemovedIcon
+
     | RemoveIconParameter (targetID, position) ->
         getIconFromState state targetID
         |> fun icon ->
@@ -316,7 +327,10 @@ let update (message : Message) (state : State) : State =
     | ChangeConstantSpawnerText text ->
         { state with ConstantSpawnerText = text }
     | ChangeCustomIconCreatorName name ->
-        { state with CustomIconCreatorName = name }
+        if nameContainsInvalidCharacters name then
+            state
+        else
+            { state with CustomIconCreatorName = name }
     | ChangeCustomIconCreatorParameterCount count ->
         { state with CustomIconCreatorParameterCount = count }
     | SwitchToTab index ->
@@ -340,14 +354,17 @@ let update (message : Message) (state : State) : State =
         | Some _ ->
             state
         | None ->
-            let newCustomIcon =
-                { ParameterCount = parameterCount
-                  SavedIcons = Map.empty
-                  EntryPointIcon = None }
-            { state with
-                CustomIcons =
-                    state.CustomIcons
-                    |> Map.add name newCustomIcon }
+            if nameContainsInvalidCharacters name then
+                state
+            else
+                let newCustomIcon =
+                    { ParameterCount = parameterCount
+                      SavedIcons = Map.empty
+                      EntryPointIcon = None }
+                { state with
+                    CustomIcons =
+                        state.CustomIcons
+                        |> Map.add name newCustomIcon }
     | RemoveTab index ->
         removeTabFromState state index
     | NotImplemented message ->

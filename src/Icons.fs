@@ -81,3 +81,8 @@ type CustomIconType =
 type CustomIcons = Map<string, CustomIconType>
 
 type IconResultsTable = Map<IconID, int>
+
+let InvalidIconNameCharacters = "\t\n\r_"
+
+let nameContainsInvalidCharacters (name : string) =
+    name |> Seq.exists (fun c -> InvalidIconNameCharacters.Contains(c))
