@@ -71,10 +71,10 @@ let evalCustomIcon
     customIconParameters
     (iconEval : EvalContext -> IconResultsTable -> IconID -> IconResultsTable)
     : int =
-    let customIcon = getCustomIcon oldContext
+    let customIcon = oldContext.CustomIcons[customIconName]
     let nextIconID = customIcon.EntryPointIcon
 
-    if nextIconID = None then raise (TrapException(oldContext, Map.empty))
+    printf "Entry point icon: %A\n" nextIconID
 
     let newContext =
         { oldContext with
@@ -82,6 +82,9 @@ let evalCustomIcon
             CurrentIconID = nextIconID
             Parameters = customIconParameters
             RecursionDepth = oldContext.RecursionDepth + 1}
+
+    if Option.isNone(nextIconID) then raise (TrapException(newContext, Map.empty))
+
     let nextIconActualID = nextIconID.Value
     iconEval newContext Map.empty nextIconActualID
     |> fun results -> results[nextIconActualID]
@@ -90,20 +93,10 @@ let getIconInstructionFromID (context : EvalContext) (id : IconID) =
     getCustomIcon context
     |> fun customIcon -> customIcon.SavedIcons[id].IconInstruction
 
+
 let trap (context : EvalContext) (results : IconResultsTable) =
     TrapException(context, results)
     |> raise
-
-let createNewContextForCustomIcon
-    (oldContext : EvalContext)
-    (typeName : string)
-    (parameters : int list) =
-        let newIcon = oldContext.CustomIcons[typeName]
-        { oldContext with
-            ExecutingCustomIconName = typeName
-            CurrentIconID = newIcon.EntryPointIcon
-            Parameters = parameters
-            RecursionDepth = oldContext.RecursionDepth + 1 }
 
 let eval (context : EvalContext) (targetID : IconID) =
     let rec internalEval (context : EvalContext) (results : IconResultsTable) (targetID : IconID) : IconResultsTable =

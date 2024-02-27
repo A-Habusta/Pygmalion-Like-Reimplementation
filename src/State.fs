@@ -178,6 +178,17 @@ let removeTabFromState (state : State) (index : int) =
         Tabs = listRemoveIndex index state.Tabs
         CurrentTabIndex = state.CurrentTabIndex - (if index < state.CurrentTabIndex then 1 else 0) }
 
+let removeCustomIcon (name : string) (state : State) =
+//    let newCustomIcons = state.CustomIcons |> Map.remove name
+//    let newTabs =
+//        state.Tabs |>
+//    { state with
+//        CustomIcons = newCustomIcons
+//        Tabs = newTabs
+//        CurrentTabIndex = 0 }
+    //TODO:
+    state
+
 let isCurrentEntryPoint (id : IconID) (state : State) =
     getMasterCustomIcon state
     |> fun icon -> icon.EntryPointIcon = Some id
@@ -210,12 +221,45 @@ let private addCustomIfIcons trueName falseName (state : State) =
     |> stateWithNewCustomIcon falseName newFalseCustomIcon
 
 let private removeCustomIfIcons ifID (state : State) =
-    //TODO: IMPLEMENT
-    state
+    let trueName, falseName = getCustomIfIconNames (getMasterCustomIconName state) ifID
+    let newCustomIcons =
+        state.CustomIcons
+        |> Map.remove trueName
+        |> Map.remove falseName
 
-let private createIfIcon (id : IconID) (state : State) =
-    let trueName, falseName = getCustomIfIconNames (getMasterCustomIconName state) id
+    let newTabs =
+        state.Tabs
+        |> List.filter
+            (fun tab -> tab.MasterCustomIconName <> trueName && tab.MasterCustomIconName <> falseName)
+
+    { state with
+        CustomIcons = newCustomIcons
+        Tabs = newTabs
+        CurrentTabIndex = 0 }
+
+let private createIfIcon (ifID : IconID) (state : State) =
+    let trueName, falseName = getCustomIfIconNames (getMasterCustomIconName state) ifID
     addCustomIfIcons trueName falseName state
+
+let private removeIcon (id : IconID) (state : State) =
+    let iconType = getIconFromState state id |> fun icon -> icon.IconType
+    let stateWithRemovedIcon =
+        getIconTableFromState state
+        |> Map.remove id
+        |> removeIconReferencesFromTable id
+        |> stateWithNewIconTable state
+        |> unevaluateAllMatchingTabs (getMasterCustomIconName state)
+        |> fun newState ->
+            if isCurrentEntryPoint id newState then
+                newState |> stateWithNewEntryPoint None
+            else
+                newState
+
+    match iconType with
+    | BaseIfIcon ->
+        removeCustomIfIcons id stateWithRemovedIcon
+    | _ ->
+        stateWithRemovedIcon
 
 let dummyCustomIconName = "_main"
 
@@ -298,7 +342,8 @@ let update (message : Message) (state : State) : State =
             evalIconFromState state id
         with TrapException(context, partialResults) ->
             if context.RecursionDepth = 0 then
-                state
+                let newIconResults = mergeIconResults (getIconResultsTableFromState state) partialResults
+                stateWithNewIconResults newIconResults state
             else
                 let newTab =
                     { Name = context.ExecutingCustomIconName
@@ -323,25 +368,7 @@ let update (message : Message) (state : State) : State =
             removeHeldObject newState
         | None -> state
     | RemoveIcon id ->
-        let iconTable = getIconTableFromState state
-        let iconType = iconTable |> Map.find id |> fun icon -> icon.IconType
-        let stateWithRemovedIcon =
-            iconTable
-            |> Map.remove id
-            |> removeIconReferencesFromTable id
-            |> stateWithNewIconTable state
-            |> unevaluateAllMatchingTabs (getMasterCustomIconName state)
-            |> fun newState ->
-                if isCurrentEntryPoint id newState then
-                    newState |> stateWithNewEntryPoint None
-                else
-                    newState
-        match iconType with
-        | BaseIfIcon ->
-            removeCustomIfIcons id stateWithRemovedIcon
-        | _ ->
-            stateWithRemovedIcon
-
+        removeIcon id state
     | RemoveIconParameter (targetID, position) ->
         getIconFromState state targetID
         |> fun icon ->
