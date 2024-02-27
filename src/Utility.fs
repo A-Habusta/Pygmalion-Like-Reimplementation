@@ -28,6 +28,14 @@ let listRemoveIndex index list =
         | x :: xs -> listRemoveIndex' (index - 1) xs (acc @ [x])
     listRemoveIndex' index list []
 
+let listReplaceIndex index value list =
+    let rec listReplaceIndex' index value list acc =
+        match list with
+        | [] -> acc
+        | x :: xs when index = 0 -> acc @ [value] @ xs
+        | x :: xs -> listReplaceIndex' (index - 1) value xs (acc @ [x])
+    listReplaceIndex' index value list []
+
 let isNumber (text : string) =
     match Int32.TryParse text with
     | true, _ -> true

@@ -5,13 +5,14 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Utility.fs" />
-    <Compile Include="Icons.fs" />
     <Compile Include="Eval.fs" />
+    <Compile Include="Icons.fs" />
     <Compile Include="State.fs" />
     <Compile Include="View.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Fable.Aether" Version="1.0.2" />
     <PackageReference Include="Fable.Elmish.React" Version="4.0.0" />
     <PackageReference Include="Fable.Node" Version="1.2.0" />
     <PackageReference Include="Feliz" Version="2.6.0" />
