@@ -19,7 +19,7 @@ type MovableObjectTarget =
 type TabState =
     { Name : string
       MasterCustomIconName : string
-      MasterCustomIconParameters : Lazy<int> list
+      MasterCustomIconParameters : int list
       IconResultData : IconResultsTable }
 
 type State =
@@ -125,6 +125,12 @@ let private stateWithNewEntryPoint (id : IconID option) (state : State) =
                 customIconName
                 { state.CustomIcons[customIconName] with EntryPointIcon = id } }
 
+let private stateWithNewCustomIcon (name : string) (icon : CustomIconType) (state : State) =
+    { state with
+        CustomIcons =
+            state.CustomIcons
+            |> Map.add name icon }
+
 let private stateWithNewIcon (state : State) (id : IconID) (newIcon : DrawnIcon) =
     let currentIconHasEntryPoint = getMasterCustomIcon state |> fun icon -> icon.EntryPointIcon <> None
     let newState = stateWithNewIconTable state (getIconTableFromState state |> Map.add id newIcon)
@@ -186,13 +192,30 @@ let unevaluateAllMatchingTabs (masterIconName : string) (state : State) =
                 else
                     tab ) }
 
-let private addCustomIfIcons id (state : State) =
+let private addCustomIfIcons trueName falseName (state : State) =
+    let parentParamCount = getMasterCustomIcon state |> fun icon -> icon.ParameterCount
+
+    let newTrueCustomIcon =
+        { ParameterCount = parentParamCount
+          SavedIcons = Map.empty
+          EntryPointIcon = None }
+
+    let newFalseCustomIcon =
+        { ParameterCount = parentParamCount
+          SavedIcons = Map.empty
+          EntryPointIcon = None }
+
+    state
+    |> stateWithNewCustomIcon trueName newTrueCustomIcon
+    |> stateWithNewCustomIcon falseName newFalseCustomIcon
+
+let private removeCustomIfIcons ifID (state : State) =
     //TODO: IMPLEMENT
     state
 
-let private removeCustomIfIcons id (state : State) =
-    //TODO: IMPLEMENT
-    state
+let private createIfIcon (id : IconID) (state : State) =
+    let trueName, falseName = getCustomIfIconNames (getMasterCustomIconName state) id
+    addCustomIfIcons trueName falseName state
 
 let dummyCustomIconName = "_main"
 
@@ -246,7 +269,7 @@ let update (message : Message) (state : State) : State =
                 let newID = newIconID ()
                 createDrawnIcon x y newIconType
                 |> stateWithNewIcon state newID
-                |> if newIconType = BaseIfIcon then addCustomIfIcons newID else id
+                |> if newIconType = BaseIfIcon then createIfIcon newID else id
                 |> Some
             | _ ->
                 None
@@ -327,10 +350,10 @@ let update (message : Message) (state : State) : State =
     | ChangeConstantSpawnerText text ->
         { state with ConstantSpawnerText = text }
     | ChangeCustomIconCreatorName name ->
-        if nameContainsInvalidCharacters name then
+        if CustomIconNameContainsInvalidCharacter name then
             state
         else
-            { state with CustomIconCreatorName = name }
+        { state with CustomIconCreatorName = name }
     | ChangeCustomIconCreatorParameterCount count ->
         { state with CustomIconCreatorParameterCount = count }
     | SwitchToTab index ->
@@ -341,7 +364,7 @@ let update (message : Message) (state : State) : State =
             let newTab =
                 { Name = name
                   MasterCustomIconName = name
-                  MasterCustomIconParameters = List.init customIcon.ParameterCount (fun _ -> lazy 0)
+                  MasterCustomIconParameters = List.init customIcon.ParameterCount (fun _ -> 0)
                   IconResultData = Map.empty }
             state
             |> addNewTab newTab
@@ -354,17 +377,16 @@ let update (message : Message) (state : State) : State =
         | Some _ ->
             state
         | None ->
-            if nameContainsInvalidCharacters name then
+            if CustomIconNameContainsInvalidCharacter name then
                 state
             else
                 let newCustomIcon =
                     { ParameterCount = parameterCount
                       SavedIcons = Map.empty
                       EntryPointIcon = None }
-                { state with
-                    CustomIcons =
-                        state.CustomIcons
-                        |> Map.add name newCustomIcon }
+                state
+                |> stateWithNewCustomIcon name newCustomIcon
+
     | RemoveTab index ->
         removeTabFromState state index
     | NotImplemented message ->

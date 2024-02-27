@@ -40,7 +40,7 @@ type EvalContext =
     { CustomIcons : CustomIcons
       ExecutingCustomIconName : string
       CurrentIconID : IconID option
-      Parameters : Lazy<int> list
+      Parameters : int list
       RecursionDepth : int }
 
 let evalUnary operator rawOperand paramEval results =
@@ -59,30 +59,32 @@ let evalBinary operator rawOperand1 rawOperand2 paramEval results =
     getCorrectBinaryOperation operator operand1 operand2
     |> fun result -> (result, resultsTableSecond)
 
-let evalIf condition trueBranch falseBranch paramEval results =
-    let (conditionValue, resultsTableFirst) = paramEval results condition
-    paramEval
-        resultsTableFirst
-        (if conditionValue = FalseValue then falseBranch else trueBranch)
-
 
 let getCustomIcon (context : EvalContext) =
     context.CustomIcons.[context.ExecutingCustomIconName]
 
 exception TrapException of EvalContext * IconResultsTable
 
-let evalCustomIcon (context : EvalContext) (customIconName : string) (parameters : Lazy<int> list) iconEval : IconResultsTable =
-    let customIcon = getCustomIcon(context)
+let evalCustomIcon
+    (oldContext : EvalContext)
+    customIconName
+    customIconParameters
+    (iconEval : EvalContext -> IconResultsTable -> IconID -> IconResultsTable)
+    : int =
+    let customIcon = getCustomIcon oldContext
     let nextIconID = customIcon.EntryPointIcon
-    match nextIconID with
-    | None -> raise (TrapException(context, Map.empty))
-    | Some id ->
-        let newContext =
-            { context with
-                ExecutingCustomIconName = customIconName
-                CurrentIconID = nextIconID
-                Parameters = parameters }
-        iconEval newContext Map.empty id
+
+    if nextIconID = None then raise (TrapException(oldContext, Map.empty))
+
+    let newContext =
+        { oldContext with
+            ExecutingCustomIconName = customIconName
+            CurrentIconID = nextIconID
+            Parameters = customIconParameters
+            RecursionDepth = oldContext.RecursionDepth + 1}
+    let nextIconActualID = nextIconID.Value
+    iconEval newContext Map.empty nextIconActualID
+    |> fun results -> results[nextIconActualID]
 
 let getIconInstructionFromID (context : EvalContext) (id : IconID) =
     getCustomIcon context
@@ -95,7 +97,7 @@ let trap (context : EvalContext) (results : IconResultsTable) =
 let createNewContextForCustomIcon
     (oldContext : EvalContext)
     (typeName : string)
-    (parameters : Lazy<int> list) =
+    (parameters : int list) =
         let newIcon = oldContext.CustomIcons[typeName]
         { oldContext with
             ExecutingCustomIconName = typeName
@@ -106,25 +108,11 @@ let createNewContextForCustomIcon
 let eval (context : EvalContext) (targetID : IconID) =
     let rec internalEval (context : EvalContext) (results : IconResultsTable) (targetID : IconID) : IconResultsTable =
         let boundParamEval = iconParameterEval context
-        let saveOutput (output : int * IconResultsTable) =
+        let saveOutput (output : int * IconResultsTable) : IconResultsTable =
             let (result, resultsTable) = output
             resultsTable.Add(targetID, result)
-        let saveCustomIconOutput customIconEvalContext callParameters (output : IconResultsTable) =
-            let saveEvaluatedParameterReference (results : IconResultsTable, index) parameter =
-                match parameter with
-                | LocalIconInstructionReference id ->
-                    let maybeEvaluatedParameter = customIconEvalContext.Parameters[index]
-                    if maybeEvaluatedParameter.IsValueCreated then
-                        (results.Add(id, maybeEvaluatedParameter.Value), index + 1)
-                    else
-                        (results, index + 1)
-                | _ -> (results, index + 1)
-
-            let (resultsTable, _) =
-                callParameters
-                |> List.fold saveEvaluatedParameterReference (results, 0)
-            let entryPointID = customIconEvalContext.CurrentIconID.Value
-            resultsTable.Add(targetID, output.[entryPointID])
+        let saveCustomIconEvalOutput (newResults : IconResultsTable) (output : int) : IconResultsTable =
+            newResults.Add(targetID, output)
 
         match getIconInstructionFromID context targetID with
         | Unary(operator, operand) ->
@@ -133,22 +121,23 @@ let eval (context : EvalContext) (targetID : IconID) =
         | Binary(operator, operand1, operand2) ->
             evalBinary operator operand1 operand2 boundParamEval results
             |> saveOutput
-        | If(condition, trueBranch, falseBranch) ->
-            evalIf condition trueBranch falseBranch boundParamEval results
-            |> saveOutput
+        | If(condition) ->
+            let trueName, falseName = getCustomIfIconNames context.ExecutingCustomIconName targetID
+            let (conditionResult, newResultsTable) = boundParamEval results condition
+            let targetCustomIconName = if conditionResult = FalseValue then falseName else trueName
+
+            evalCustomIcon context targetCustomIconName context.Parameters internalEval
+            |> saveCustomIconEvalOutput newResultsTable
         | CallCustomIcon(typeName, parameters) ->
-            let lazyParameters =
-                parameters
-                |> List.map (fun param ->
-                    let lazyParam = lazy (boundParamEval results param |> fst)
-                    match param with
-                    | Constant _ ->
-                        ignore (lazyParam.Force ()) // Force evalution since it's a constant
-                        lazyParam
-                    | _ -> lazyParam)
-            let newContext = createNewContextForCustomIcon context typeName lazyParameters
-            evalCustomIcon newContext typeName lazyParameters internalEval
-            |> saveCustomIconOutput newContext parameters
+            let (evaluatedParameters, newResultsTable) =
+                List.foldBack
+                    (fun parameter (evalResults, resultsTable) ->
+                        let (result, newResultsTable) = boundParamEval resultsTable parameter
+                        (result :: evalResults, newResultsTable))
+                    parameters
+                    ([], results)
+            evalCustomIcon context typeName evaluatedParameters internalEval
+            |> saveCustomIconEvalOutput newResultsTable
         | TopLevelTrap -> trap context results
 
     and iconParameterEval (context : EvalContext) (results : IconResultsTable) (parameter : IconInstructionParameter) : int * IconResultsTable =
@@ -157,7 +146,7 @@ let eval (context : EvalContext) (targetID : IconID) =
         match parameter with
         | Constant value -> wrapOutput value
         | BaseIconParameter index ->
-            let parameterValue = context.Parameters.[index].Value
+            let parameterValue = context.Parameters.[index]
             wrapOutput parameterValue
         | LocalIconInstructionReference id ->
             match results.TryFind id with

@@ -35,10 +35,8 @@ let private parameterToString (state : State) (parameter : IconInstructionParame
         | Some result -> sprintf "%A" result
         | None -> unknownIdentifier
     | BaseIconParameter position ->
-        let func = getMasterCustomIconParameters state |> List.item position
-        match func.IsValueCreated with
-        | true -> sprintf "%A" func.Value
-        | false -> unknownIdentifier
+        let param = getMasterCustomIconParameters state |> List.item position
+        sprintf "%d" param
     | Constant value -> sprintf "%d" value
     | Trap -> String.Empty
 
@@ -88,13 +86,11 @@ let private renderIcon
                 [ iconDecoratorText op; renderedParameters[0] ]
             | Binary (op, _, _) ->
                 [ renderedParameters[0]; iconDecoratorText op; renderedParameters[1] ]
-            | If (_, _, _) -> [
-                    iconDecoratorText "If"
+            | If (_) -> [
+                    let visibleId = GetDrawnIconIdCharacters id DrawnIconVisibleIdCharacters
+                    let ifName = $"If {visibleId}"
+                    iconDecoratorText ifName
                     renderedParameters[0]
-                    iconDecoratorText "Then"
-                    renderedParameters[1]
-                    iconDecoratorText "Else"
-                    renderedParameters[2]
                 ]
             | CallCustomIcon (name, _) ->
                 iconDecoratorText name :: renderedParameters
@@ -238,7 +234,8 @@ let private customIconSpawnersView (state : State) (dispatch : Message -> unit) 
             prop.children [
                 Html.button [
                     prop.text iconTypeName
-                    prop.onClick (fun _ -> dispatch (PickupNewIcon (CustomIcon (iconTypeName, iconType.ParameterCount))))
+                    if not (CustomIconNameContainsInvalidCharacter iconTypeName) then
+                        prop.onClick (fun _ -> dispatch (PickupNewIcon (CustomIcon (iconTypeName, iconType.ParameterCount))))
                 ]
                 Html.button [
                     prop.text "Edit"
@@ -252,7 +249,8 @@ let private customIconSpawnersView (state : State) (dispatch : Message -> unit) 
             |> List.filter (fun (name, _) -> name <> dummyCustomIconName)
             |> List.map
                 (fun (id, icon) ->
-                    customIconSpawnerView id icon) )
+                    let name = CustomIconNameRemoveInvisiblePart id
+                    customIconSpawnerView name icon) )
     customIconsSpawners
 let private constantSpawnerView (state : State) (dispatch : Message -> unit) : ReactElement =
     Html.div [
@@ -374,12 +372,9 @@ let private customIconCreatorView (state : State) (dispatch : Message -> unit) :
     customIconCreator
 
 let tabParametersView (state : State) (dispatch : Message -> unit) : ReactElement =
-    let drawParameter index (parameter : Lazy<int>) =
+    let drawParameter index (parameter : int) =
         let parameterText =
-            if parameter.IsValueCreated then
-                sprintf "%d" parameter.Value
-            else
-                unknownIdentifier
+            sprintf "%d" parameter
         Html.div [
             prop.className "tab-parameter"
             prop.text parameterText
