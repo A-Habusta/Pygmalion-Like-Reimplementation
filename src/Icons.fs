@@ -104,6 +104,7 @@ and IconActionBranchLens = Lens<LocalIconAction list list, LocalIconAction list 
 
 type CustomIconName = string
 type CustomIcons = Map<CustomIconName, CustomIcon>
+type CustomIconPrism = Prism<CustomIcons, CustomIcon>
 
 type LocalState =
     { HeldObject : MovableObject
