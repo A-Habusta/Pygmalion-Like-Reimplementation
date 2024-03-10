@@ -5,7 +5,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Utility.fs" />
-    <Compile Include="Eval.fs" />
+    <Compile Include="SimpleEval.fs" />
     <Compile Include="Icons.fs" />
     <Compile Include="State.fs" />
     <Compile Include="View.fs" />

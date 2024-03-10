@@ -1,4 +1,4 @@
-module PygmalionReimplementation.Eval
+module PygmalionReimplementation.SimpleEval
 
 open PygmalionReimplementation.Utils
 

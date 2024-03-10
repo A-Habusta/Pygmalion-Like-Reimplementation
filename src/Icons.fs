@@ -4,7 +4,7 @@ open System
 open Aether
 open Aether.Operators
 
-open PygmalionReimplementation.Eval
+open PygmalionReimplementation.SimpleEval
 
 type UnderlyingNumberDataType = int
 
