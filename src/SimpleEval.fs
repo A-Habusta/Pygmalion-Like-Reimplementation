@@ -2,6 +2,11 @@ module PygmalionReimplementation.SimpleEval
 
 open PygmalionReimplementation.Utils
 
+type UnderlyingNumberDataType = int
+type IconInstructionParameter = UnderlyingNumberDataType option
+
+exception TrapException
+
 let getCorrectBoolBinaryOperation operatorString =
     let inputToBool = binaryFuncInputConverter intToBool intToBool
     let matchFunc =
@@ -36,11 +41,16 @@ let getCorrectBinaryOperation operator =
     | _ -> getCorrectCompareBinaryOperation operator
 
 let evalUnary operator operand =
-    match operator with
-    | "!" -> if operand = FalseValue then TrueValue else FalseValue
-    | "-" -> -operand
-    | "+" -> operand
-    | _ -> failwith "Unknown unary operator"
+    match (operator, operand) with
+    | ("!", Some operand) -> if operand = FalseValue then TrueValue else FalseValue
+    | ("-", Some operand) -> -operand
+    | ("+", Some operand) -> operand
+    | (_, Some _) -> failwith "Unknown unary operator"
+    | _ -> raise TrapException
 
 let evalBinary operator rawOperand1 rawOperand2 =
-    getCorrectBinaryOperation operator rawOperand1 rawOperand2
+    match (operator, rawOperand1, rawOperand2) with
+    | (_, None, _) -> raise TrapException
+    | (_, _, None) -> raise TrapException
+    | (operator, Some operand1, Some operand2) ->
+        getCorrectBinaryOperation operator operand1 operand2
