@@ -64,24 +64,24 @@ and MovableObjectTarget =
 
 and CustomIcon =
     { ParameterCount : int
-      ActionTree : LocalIconActionTree }
+      ActionTree : ExecutionActionTree }
 
     static member ParameterCount_ =
         _.ParameterCount, (fun newValue instance -> { instance with ParameterCount = newValue })
     static member LocalActionTree_ =
         _.ActionTree, (fun newValue instance -> { instance with ActionTree = newValue })
 
-and LocalIconActionTree =
-    | EvaluateIcon of DrawnIconPrism * next : LocalIconActionTree
-    | EvaluateIf of DrawnIconPrism * falseBranch : LocalIconActionTree * trueBranch : LocalIconActionTree
-    | PickupNewIcon of IconType * next : LocalIconActionTree
-    | PickupIcon of DrawnIconPrism * next : LocalIconActionTree
-    | PickupNumber of UnderlyingNumberDataType * next : LocalIconActionTree
-    | PickupExecutionStateParameter of parameterIndex : int * next : LocalIconActionTree
-    | PlacePickup of MovableObjectTarget * next : LocalIconActionTree
-    | CancelPickup of next : LocalIconActionTree
-    | RemoveIcon of index : int * next : LocalIconActionTree
-    | RemoveIconParameter of target : DrawnIconPrism * position : int * next : LocalIconActionTree
+and ExecutionActionTree =
+    | EvaluateIcon of DrawnIconPrism * next : ExecutionActionTree
+    | EvaluateIf of DrawnIconPrism * falseBranch : ExecutionActionTree * trueBranch : ExecutionActionTree
+    | PickupNewIcon of IconType * next : ExecutionActionTree
+    | PickupIcon of DrawnIconPrism * next : ExecutionActionTree
+    | PickupNumber of UnderlyingNumberDataType * next : ExecutionActionTree
+    | PickupExecutionStateParameter of parameterIndex : int * next : ExecutionActionTree
+    | PlacePickup of MovableObjectTarget * next : ExecutionActionTree
+    | CancelPickup of next : ExecutionActionTree
+    | RemoveIcon of index : int * next : ExecutionActionTree
+    | RemoveIconParameter of target : DrawnIconPrism * position : int * next : ExecutionActionTree
     | Blank
 
 and CustomIconName = string
@@ -230,7 +230,7 @@ and applyLocalAction customIcons action =
         setParameterAtPosition targetPrism position Trap
     | Blank -> id
 
-and applyLocalActions customIcons (actionTree : LocalIconActionTree) state =
+and applyLocalActions customIcons (actionTree : ExecutionActionTree) state =
     let stateWithAppliedHeadAction = applyLocalAction customIcons actionTree state
     let boundApplyLocalActions next =
         applyLocalActions customIcons next stateWithAppliedHeadAction
@@ -256,7 +256,7 @@ and buildExecutionStateForCustomIcon customIcons (customIconOptic : CustomIconPr
         customIcons ^. optic |> Option.get
     applyLocalActions customIcons actionTree baseExecutionState
 
-let appendNewActionToTree newAction choicesList (actionTree : LocalIconActionTree) =
+let appendNewActionToTree newAction choicesList (actionTree : ExecutionActionTree) =
     let rec appendNewActionToTree' newAction choicesList actionTree =
         let boundAppendNewActionToTree = appendNewActionToTree' newAction choicesList
         match actionTree with
