@@ -21,20 +21,14 @@ let binaryFuncInputConverter convertA convertB f a b =
     f a' b'
 
 let listRemoveIndex index list =
-    let rec listRemoveIndex' index list acc =
-        match list with
-        | [] -> acc
-        | x :: xs when index = 0 -> acc @ xs
-        | x :: xs -> listRemoveIndex' (index - 1) xs (acc @ [x])
-    listRemoveIndex' index list []
+    list
+    |> List.mapi (fun i x -> (i, x))
+    |> List.filter (fun (i, _) -> i <> index)
+    |> List.map snd
 
 let listReplaceIndex index value list =
-    let rec listReplaceIndex' index value list acc =
-        match list with
-        | [] -> acc
-        | x :: xs when index = 0 -> acc @ [value] @ xs
-        | x :: xs -> listReplaceIndex' (index - 1) value xs (acc @ [x])
-    listReplaceIndex' index value list []
+    list
+    |> List.mapi (fun i x -> if i = index then value else x)
 
 let isNumber (text : string) =
     match Int32.TryParse text with
@@ -43,3 +37,12 @@ let isNumber (text : string) =
 
 let isText (text : string) =
     String.length text > 0
+
+let listLast list =
+    let rec listLast' list acc =
+        match list with
+        | [] -> acc
+        | x :: xs -> listLast' xs x
+    listLast' list (List.head list)
+
+let cons x y = x :: y
