@@ -30,6 +30,13 @@ let listReplaceIndex index value list =
     list
     |> List.mapi (fun i x -> if i = index then value else x)
 
+let listLast list =
+    let rec listLast' list acc =
+        match list with
+        | [] -> acc
+        | x :: xs -> listLast' xs x
+    listLast' list (List.head list)
+
 let isNumber (text : string) =
     match Int32.TryParse text with
     | true, _ -> true
@@ -38,11 +45,5 @@ let isNumber (text : string) =
 let isText (text : string) =
     String.length text > 0
 
-let listLast list =
-    let rec listLast' list acc =
-        match list with
-        | [] -> acc
-        | x :: xs -> listLast' xs x
-    listLast' list (List.head list)
 
 let cons x y = x :: y
