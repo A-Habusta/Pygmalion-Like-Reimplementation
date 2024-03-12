@@ -1,8 +1,9 @@
 module PygmalionReimplementation.State
 
-open System
+open Aether
+open Aether.Operators
 
-open PygmalionReimplementation.Utils
+open PygmalionReimplementation.SimpleEval
 open PygmalionReimplementation.Icons
 
 type SingleTabState =
@@ -11,11 +12,14 @@ type SingleTabState =
       TabParameters : UnderlyingNumberDataType list }
 
     static member TabName_ =
-        (fun a -> a.TabName), (fun value a -> { a with TabName = value })
+        _.TabName, (fun value a -> { a with TabName = value })
     static member TabCustomIconPrism_ =
-        (fun a -> a.TabCustomIconPrism), (fun value a -> { a with TabCustomIconPrism = value })
+        _.TabCustomIconPrism, (fun value a -> { a with TabCustomIconPrism = value })
     static member TabParameters_ =
-        (fun a -> a.TabParameters), (fun value a -> { a with TabParameters = value })
+        _.TabParameters, (fun value a -> { a with TabParameters = value })
+
+type Tabs = SingleTabState list
+type TabPrism = Prism<Tabs, SingleTabState>
 
 type InputState =
     { ConstantSpawnerText : string
@@ -23,20 +27,32 @@ type InputState =
       CustomIconCreatorParameterCount : string }
 
     static member ConstantSpawnerText_ =
-        (fun a -> a.ConstantSpawnerText), (fun value a -> { a with ConstantSpawnerText = value })
+        _.ConstantSpawnerText, (fun value a -> { a with ConstantSpawnerText = value })
     static member CustomIconCreatorName_ =
-        (fun a -> a.CustomIconCreatorName), (fun value a -> { a with CustomIconCreatorName = value })
+        _.CustomIconCreatorName, (fun value a -> { a with CustomIconCreatorName = value })
     static member CustomIconCreatorParameterCount_ =
-        (fun a -> a.CustomIconCreatorParameterCount), (fun value a -> { a with CustomIconCreatorParameterCount = value })
+        _.CustomIconCreatorParameterCount, (fun value a -> { a with CustomIconCreatorParameterCount = value })
 
 type State =
     { CustomIcons : CustomIcons
-      CurrentLocalState : LocalState
+      CurrentLocalState : ExecutionState
       InputState : InputState }
 
     static member CustomIcons_ =
-        (fun a -> a.CustomIcons), (fun value a -> { a with CustomIcons = value })
+        _.CustomIcons, (fun value a -> { a with CustomIcons = value })
     static member CurrentLocalState_ =
-        (fun a -> a.CurrentLocalState), (fun value a -> { a with CurrentLocalState = value })
+        _.CurrentLocalState, (fun value a -> { a with CurrentLocalState = value })
     static member InputState_ =
-        (fun a -> a.InputState), (fun value a -> { a with InputState = value })
+        _.InputState, (fun value a -> { a with InputState = value })
+
+type InputAction =
+    | SetConstantSpawnerText of string
+    | SetCustomIconCreatorName of string
+    | SetCustomIconParameterCount of string
+    | PressCustomIconCreatorButton
+    | PressConstantSpawnerButton
+
+type Action =
+    | SwitchTab of TabPrism
+    | InputAction of InputAction
+    | IconAction of ExecutionActionTree
