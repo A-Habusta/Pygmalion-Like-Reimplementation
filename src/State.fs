@@ -3,6 +3,7 @@ module PygmalionReimplementation.State
 open Aether
 open Aether.Operators
 
+open PygmalionReimplementation.SimpleEval
 open PygmalionReimplementation.Icons
 open PygmalionReimplementation.Utils
 
@@ -87,10 +88,9 @@ let init () : State =
       InputState = initialInputState }
 
 let switchToTopTab (state : State) : State =
-    let tab = state ^. State.CurrentTabPrism_ |> Option.get
-    let newExecutionState =
-        buildExecutionStateForCustomIcon state.CustomIcons tab.TabCustomIconPrism tab.TabParameters
-    state |> newExecutionState ^= State.ExecutionState_
+    let firstTab = state ^. State.CurrentTabPrism_
+    state
+
 
 let removeTopTab (state : State) : State =
     state |> List.tail ^% State.Tabs_ |> switchToTopTab

@@ -4,17 +4,7 @@ open Aether
 open Aether.Operators
 
 open PygmalionReimplementation.Utils
-
-type UnderlyingNumberDataType = int
-type IconInstructionParameter = UnderlyingNumberDataType option
-
-type UnaryOperation =
-    { Name : string
-      Op : (UnderlyingNumberDataType -> UnderlyingNumberDataType) }
-
-type BinaryOperation =
-    { Name : string
-      Op : (UnderlyingNumberDataType -> UnderlyingNumberDataType -> UnderlyingNumberDataType) }
+open PygmalionReimplementation.SimpleEval
 
 type IconInstruction =
     | Unary of operator : UnaryOperation * IconInstructionParameter
@@ -124,21 +114,12 @@ type ExecutionState =
     static member Result_ =
         _.Result, (fun newValue instance -> { instance with ExecutionState.Result = newValue })
 
-let private baseExecutionState parameters =
+let baseExecutionState parameters =
     { HeldObject = NoObject
       LocalIcons = List.empty
       CurrentBranchChoices = List.empty
       Parameters = parameters
       Result = None }
-
-type EvaluationState =
-    { CustomIcons : CustomIcons
-      ExecutingCustomIcon : CustomIconPrism option }
-
-exception TrapException of CustomIconPrism option
-
-let private baseEvalState customIcons = { CustomIcons = customIcons; ExecutingCustomIcon = None }
-
 
 let private invalidCustomIconNameCharacters = "\t\n\r_"
 
@@ -196,57 +177,41 @@ let private placePickup target state =
         {state with Result = Some number}
     | (_, _) -> state
 
-let stringToUnderlyingNumberDataType (input : string) : UnderlyingNumberDataType =
-    int input
-
-let evalUnaryOperation trap (operation : UnaryOperation) rawOperand =
-    match rawOperand with
-    | Some operand -> operation.Op operand
-    | None -> trap()
-
-let evalBinaryOperation trap (operation : BinaryOperation) rawOperand1 rawOperand2 =
-    match (rawOperand1, rawOperand2) with
-    | (None, _) -> trap()
-    | (_, None) -> trap()
-    | (Some operand1, Some operand2) -> operation.Op operand1 operand2
-
-let rec private evaluateIconInstruction evalState iconInstruction =
-    let customIcons = evalState.CustomIcons
-    let trap() = raise (TrapException evalState.ExecutingCustomIcon)
+let rec private evaluateIconInstruction customIcons iconInstruction =
     match iconInstruction with
     | Unary(op, arg) ->
-        evalUnaryOperation trap op arg
+        evalUnaryOperation op arg
     | Binary(op, arg1, arg2) ->
-        evalBinaryOperation trap op arg1 arg2
+        evalBinaryOperation op arg1 arg2
     | If(op) ->
-        Option.defaultWith trap op
+        Option.defaultWith (raise TrapException) op
     | CallCustomIcon(iconPrism: CustomIconPrism, parameters) ->
         parameters
-        |> List.map (Option.defaultWith trap)
+        |> List.map (Option.defaultWith (raise TrapException))
         |> buildExecutionStateForCustomIcon customIcons iconPrism
         |> Optic.get ExecutionState.Result_
-        |> Option.defaultWith trap
+        |> Option.defaultWith (raise TrapException) // Trap if result wasn't set
 
-and private evaluateDrawnIcon evalState drawnIcon =
+and private evaluateIconInstance customIcons drawnIcon =
     let iconInstruction = drawnIcon.IconInstruction
-    let result = evaluateIconInstruction evalState iconInstruction
+    let result = evaluateIconInstruction customIcons iconInstruction
     {drawnIcon with Result = Some result}
 
-and private evaluateIconInState evalState iconPrism : ExecutionState -> ExecutionState =
-    evaluateDrawnIcon evalState ^% (ExecutionState.LocalIcons_ >-> iconPrism)
+and private evaluateIcon customIcons iconPrism : ExecutionState -> ExecutionState =
+    evaluateIconInstance customIcons ^% (ExecutionState.LocalIcons_ >-> iconPrism)
 
 and private evaluateIf customIcons ifPrism state =
-    let newState = evaluateIconInState customIcons ifPrism state
+    let newState = evaluateIcon customIcons ifPrism state
     let result =
         let resultPrism = ExecutionState.LocalIcons_ >-> ifPrism >?> DrawnIcon.Result_
         newState ^. resultPrism |> Option.get |> Option.get |> intToBool
     newState |> cons result ^% ExecutionState.CurrentBranchChoices_
 
-and private applyExecutionActionNode' evalState (actionNode : ExecutionActionTree) =
-    let applySimpleExecutionAction evalState action =
+and applyExecutionActionNode customIcons (actionNode : ExecutionActionTree) =
+    let applySimpleExecutionAction customIcons action =
         match action with
         | EvaluateIcon iconPrism ->
-            evaluateIconInState evalState iconPrism
+            evaluateIcon customIcons iconPrism
         | PickupNewIcon iconType ->
             (NewIcon iconType) ^= ExecutionState.HeldObject_
         | PickupIcon iconPrism->
@@ -273,15 +238,15 @@ and private applyExecutionActionNode' evalState (actionNode : ExecutionActionTre
 
     match actionNode with
     | Linear (action, _) ->
-        applySimpleExecutionAction evalState action
+        applySimpleExecutionAction customIcons action
     | Branch (action, _, _) ->
-        applyBranchingExecutionAction evalState action
+        applyBranchingExecutionAction customIcons action
     | End -> id
 
-and private applyExecutionActionTree' evalState (actionTree : ExecutionActionTree) state =
-    let stateWithAppliedHeadAction = applyExecutionActionNode' evalState actionTree state
+and applyExecutionActionTree customIcons (actionTree : ExecutionActionTree) state =
+    let stateWithAppliedHeadAction = applyExecutionActionNode customIcons actionTree state
     let boundRecursiveCall next =
-        applyExecutionActionTree' evalState next stateWithAppliedHeadAction
+        applyExecutionActionTree customIcons next stateWithAppliedHeadAction
     match actionTree with
     | Linear (_, next) -> boundRecursiveCall next
     | Branch (_, falseBranch, trueBranch) ->
@@ -294,8 +259,7 @@ and buildExecutionStateForCustomIcon customIcons (customIconOptic : CustomIconPr
     let actionTree=
         let optic = customIconOptic >?> CustomIcon.LocalActionTree_
         customIcons ^. optic |> Option.get
-    let evalState = { CustomIcons = customIcons; ExecutingCustomIcon = Some customIconOptic}
-    applyExecutionActionTree' evalState actionTree baseExecutionState
+    applyExecutionActionTree customIcons actionTree baseExecutionState
 
 let appendNewActionToTree newAction choicesList (actionTree : ExecutionActionTree) =
     let rec appendNewActionToTree' newAction choicesList actionTree =
@@ -313,12 +277,6 @@ let appendNewActionToTree newAction choicesList (actionTree : ExecutionActionTre
         | End -> newAction
 
     appendNewActionToTree' newAction (List.rev choicesList) actionTree
-
-let applyExecutionActionNode customIcons action =
-    applyExecutionActionNode' (baseEvalState customIcons) action
-
-let applyExecutionActionTree customIcons actionTree =
-    applyExecutionActionTree' customIcons actionTree
 
 let wrapSimpleExecutionAction action =
     Linear(action, End)
