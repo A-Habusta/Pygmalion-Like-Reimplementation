@@ -125,6 +125,8 @@ let private invalidCustomIconNameCharacters = "\t\n\r_"
 
 let Trap : IconInstructionParameter = None
 
+exception ExtendedTrapException of CustomIconPrism * UnderlyingNumberDataType list
+
 let transformInstructionParameters transform =
     transform ^% IconInstruction.Params_ // Optic.map
 
@@ -207,7 +209,7 @@ and private evaluateIf customIcons ifPrism state =
         newState ^. resultPrism |> Option.get |> Option.get |> intToBool
     newState |> cons result ^% ExecutionState.CurrentBranchChoices_
 
-and applyExecutionActionNode customIcons (actionNode : ExecutionActionTree) =
+and private applyExecutionActionNodeInternal customIcons (actionNode : ExecutionActionTree) =
     let applySimpleExecutionAction customIcons action =
         match action with
         | EvaluateIcon iconPrism ->
@@ -243,8 +245,8 @@ and applyExecutionActionNode customIcons (actionNode : ExecutionActionTree) =
         applyBranchingExecutionAction customIcons action
     | End -> id
 
-and applyExecutionActionTree customIcons (actionTree : ExecutionActionTree) state =
-    let stateWithAppliedHeadAction = applyExecutionActionNode customIcons actionTree state
+and private applyExecutionActionTree customIcons (actionTree : ExecutionActionTree) state =
+    let stateWithAppliedHeadAction = applyExecutionActionNodeInternal customIcons actionTree state
     let boundRecursiveCall next =
         applyExecutionActionTree customIcons next stateWithAppliedHeadAction
     match actionTree with
@@ -259,8 +261,17 @@ and buildExecutionStateForCustomIcon customIcons (customIconOptic : CustomIconPr
     let actionTree=
         let optic = customIconOptic >?> CustomIcon.LocalActionTree_
         customIcons ^. optic |> Option.get
-    applyExecutionActionTree customIcons actionTree baseExecutionState
+    try
+        applyExecutionActionTree customIcons actionTree baseExecutionState
+    with TrapException ->
+        let outerException = ExtendedTrapException(customIconOptic, parameters)
+        raise outerException
 
+let applyExecutionActionNode customIcons actionNode state=
+    try
+        applyExecutionActionNodeInternal customIcons actionNode state
+    with TrapException ->
+        state
 let appendNewActionToTree newAction choicesList (actionTree : ExecutionActionTree) =
     let rec appendNewActionToTree' newAction choicesList actionTree =
         let boundRecursiveCall = appendNewActionToTree' newAction

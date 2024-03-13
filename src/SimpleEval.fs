@@ -1,7 +1,5 @@
 module PygmalionReimplementation.SimpleEval
 
-open PygmalionReimplementation.Utils
-
 type UnderlyingNumberDataType = int
 type IconInstructionParameter = UnderlyingNumberDataType option
 
