@@ -80,13 +80,15 @@ and ExecutionActionTree =
     | PickupExecutionStateParameter of parameterIndex : int * next : ExecutionActionTree
     | PlacePickup of MovableObjectTarget * next : ExecutionActionTree
     | CancelPickup of next : ExecutionActionTree
-    | RemoveIcon of index : int * next : ExecutionActionTree
+    | RemoveIcon of remover : (DrawnIcons -> DrawnIcons) * next : ExecutionActionTree
     | RemoveIconParameter of target : DrawnIconPrism * position : int * next : ExecutionActionTree
     | Blank
 
 and CustomIconName = string
 and CustomIcons = Map<CustomIconName, CustomIcon>
 and CustomIconPrism = Prism<CustomIcons, CustomIcon>
+
+let initialCustomIconName = "_main"
 
 type ExecutionState =
     { HeldObject : MovableObject
@@ -169,10 +171,6 @@ let private placePickup target state =
         {state with Result = Some number}
     | (_, _) -> state
 
-let private removeIcon targetIndex state =
-    state
-    |> listRemoveIndex targetIndex ^% ExecutionState.LocalIcons_
-
 let rec private evaluateIconInstruction customIcons iconInstruction =
     match iconInstruction with
     | Unary(op, arg) ->
@@ -224,8 +222,8 @@ and applyLocalAction customIcons action =
         NoObject ^= ExecutionState.HeldObject_
     | PlacePickup (target, _) ->
         placePickup target
-    | RemoveIcon (iconIndex, _) ->
-        removeIcon iconIndex
+    | RemoveIcon (remover, _) ->
+        remover ^% ExecutionState.LocalIcons_
     | RemoveIconParameter (targetPrism ,position, _) ->
         setParameterAtPosition targetPrism position Trap
     | Blank -> id
