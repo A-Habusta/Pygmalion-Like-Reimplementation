@@ -71,18 +71,24 @@ and CustomIcon =
     static member LocalActionTree_ =
         _.ActionTree, (fun newValue instance -> { instance with ActionTree = newValue })
 
+and SimpleExecutionAction =
+    | EvaluateIcon of DrawnIconPrism
+    | PickupNewIcon of IconType
+    | PickupIcon of DrawnIconPrism
+    | PickupNumber of UnderlyingNumberDataType
+    | PickupExecutionStateParameter of parameterIndex : int
+    | PlacePickup of MovableObjectTarget
+    | CancelPickup
+    | RemoveIcon of remover : (DrawnIcons -> DrawnIcons)
+    | RemoveIconParameter of target : DrawnIconPrism * position : int
+
+and BranchingExecutionAction =
+    | EvaluateIf of DrawnIconPrism
+
 and ExecutionActionTree =
-    | EvaluateIcon of DrawnIconPrism * next : ExecutionActionTree
-    | EvaluateIf of DrawnIconPrism * falseBranch : ExecutionActionTree * trueBranch : ExecutionActionTree
-    | PickupNewIcon of IconType * next : ExecutionActionTree
-    | PickupIcon of DrawnIconPrism * next : ExecutionActionTree
-    | PickupNumber of UnderlyingNumberDataType * next : ExecutionActionTree
-    | PickupExecutionStateParameter of parameterIndex : int * next : ExecutionActionTree
-    | PlacePickup of MovableObjectTarget * next : ExecutionActionTree
-    | CancelPickup of next : ExecutionActionTree
-    | RemoveIcon of remover : (DrawnIcons -> DrawnIcons) * next : ExecutionActionTree
-    | RemoveIconParameter of target : DrawnIconPrism * position : int * next : ExecutionActionTree
-    | Blank
+    | Linear of action : SimpleExecutionAction * next : ExecutionActionTree
+    | Branch of action : BranchingExecutionAction * falseBranch : ExecutionActionTree * trueBranch : ExecutionActionTree
+    | End
 
 and CustomIconName = string
 and CustomIcons = Map<CustomIconName, CustomIcon>
@@ -201,88 +207,79 @@ and private evaluateIf customIcons ifPrism state =
         newState ^. resultPrism |> Option.get |> Option.get |> intToBool
     newState |> cons result ^% ExecutionState.CurrentBranchChoices_
 
-and applyLocalAction customIcons action =
-    match action with
-    | EvaluateIcon (iconPrism, _) ->
-        evaluateIcon customIcons iconPrism
-    | EvaluateIf (ifPrism,_ , _) ->
-        evaluateIf customIcons ifPrism
-    | PickupNewIcon (iconType, _) ->
-        (NewIcon iconType) ^= ExecutionState.HeldObject_
-    | PickupIcon (iconPrism, _)->
-        (ExistingIcon iconPrism) ^= ExecutionState.HeldObject_
-    | PickupNumber (parameter, _) ->
-        (Number parameter) ^= ExecutionState.HeldObject_
-    | PickupExecutionStateParameter (parameterIndex, _) ->
-        fun state ->
-            let parameterOptic = ExecutionState.Parameters_ >-> List.pos_ parameterIndex
-            let parameter = Option.get (state ^. parameterOptic) // Crashes on invalid index
-            state |> (Number parameter) ^= ExecutionState.HeldObject_
-    | CancelPickup _ ->
-        NoObject ^= ExecutionState.HeldObject_
-    | PlacePickup (target, _) ->
-        placePickup target
-    | RemoveIcon (remover, _) ->
-        remover ^% ExecutionState.LocalIcons_
-    | RemoveIconParameter (targetPrism ,position, _) ->
-        setParameterAtPosition targetPrism position Trap
-    | Blank -> id
+and applyExecutionActionNode customIcons (actionNode : ExecutionActionTree) =
+    let applySimpleExecutionAction customIcons action =
+        match action with
+        | EvaluateIcon iconPrism ->
+            evaluateIcon customIcons iconPrism
+        | PickupNewIcon iconType ->
+            (NewIcon iconType) ^= ExecutionState.HeldObject_
+        | PickupIcon iconPrism->
+            (ExistingIcon iconPrism) ^= ExecutionState.HeldObject_
+        | PickupNumber parameter ->
+            (Number parameter) ^= ExecutionState.HeldObject_
+        | PickupExecutionStateParameter parameterIndex ->
+            fun state ->
+                let parameterOptic = ExecutionState.Parameters_ >-> List.pos_ parameterIndex
+                let parameter = Option.get (state ^. parameterOptic) // Crashes on invalid index
+                state |> (Number parameter) ^= ExecutionState.HeldObject_
+        | CancelPickup ->
+            NoObject ^= ExecutionState.HeldObject_
+        | PlacePickup target ->
+            placePickup target
+        | RemoveIcon remover ->
+            remover ^% ExecutionState.LocalIcons_
+        | RemoveIconParameter (targetPrism, position) ->
+            setParameterAtPosition targetPrism position Trap
+    let applyBranchingExecutionAction customIcons action =
+        match action with
+        | EvaluateIf (ifPrism) ->
+            evaluateIf customIcons ifPrism
 
-and applyLocalActions customIcons (actionTree : ExecutionActionTree) state =
-    let stateWithAppliedHeadAction = applyLocalAction customIcons actionTree state
-    let boundApplyLocalActions next =
-        applyLocalActions customIcons next stateWithAppliedHeadAction
+    match actionNode with
+    | Linear (action, _) ->
+        applySimpleExecutionAction customIcons action
+    | Branch (action, _, _) ->
+        applyBranchingExecutionAction customIcons action
+    | End -> id
+
+and applyExecutionActionTree customIcons (actionTree : ExecutionActionTree) state =
+    let stateWithAppliedHeadAction = applyExecutionActionNode customIcons actionTree state
+    let boundRecursiveCall next =
+        applyExecutionActionTree customIcons next stateWithAppliedHeadAction
     match actionTree with
-    | EvaluateIcon (_, next) -> boundApplyLocalActions next
-    | EvaluateIf (_ , falseBranch, trueBranch) ->
+    | Linear (_, next) -> boundRecursiveCall next
+    | Branch (_, falseBranch, trueBranch) ->
         let nextBranch = if stateWithAppliedHeadAction.CurrentBranchChoices.Head then trueBranch else falseBranch
-        boundApplyLocalActions nextBranch
-    | PickupNewIcon (_, next) -> boundApplyLocalActions next
-    | PickupIcon (_, next)-> boundApplyLocalActions next
-    | PickupExecutionStateParameter (_, next) -> boundApplyLocalActions next
-    | PickupNumber (_, next) -> boundApplyLocalActions next
-    | CancelPickup next -> boundApplyLocalActions next
-    | PlacePickup (_, next) -> boundApplyLocalActions next
-    | RemoveIcon (_, next) -> boundApplyLocalActions next
-    | RemoveIconParameter (_, _, next) -> boundApplyLocalActions next
-    | Blank -> state
+        boundRecursiveCall nextBranch
+    | End -> stateWithAppliedHeadAction
 
 and buildExecutionStateForCustomIcon customIcons (customIconOptic : CustomIconPrism) parameters =
     let baseExecutionState = baseExecutionState parameters
     let actionTree=
         let optic = customIconOptic >?> CustomIcon.LocalActionTree_
         customIcons ^. optic |> Option.get
-    applyLocalActions customIcons actionTree baseExecutionState
+    applyExecutionActionTree customIcons actionTree baseExecutionState
 
 let appendNewActionToTree newAction choicesList (actionTree : ExecutionActionTree) =
     let rec appendNewActionToTree' newAction choicesList actionTree =
-        let boundAppendNewActionToTree = appendNewActionToTree' newAction choicesList
+        let boundRecursiveCall = appendNewActionToTree' newAction choicesList
         match actionTree with
-        | EvaluateIcon (iconPrism, next) ->
-            EvaluateIcon(iconPrism, appendNewActionToTree' newAction choicesList next)
-        | EvaluateIf (ifPrism, falseBranch, trueBranch) ->
+        | Linear (simpleAction, next) ->
+            Linear(simpleAction, boundRecursiveCall next)
+        | Branch (branchingAction, falseBranch, trueBranch) ->
             match choicesList with
             | false :: restChoices ->
-                EvaluateIf(ifPrism, appendNewActionToTree' newAction restChoices falseBranch, trueBranch)
+                Branch(branchingAction, boundRecursiveCall falseBranch, trueBranch)
             | true :: restChoices ->
-                EvaluateIf(ifPrism, falseBranch, appendNewActionToTree' newAction restChoices trueBranch)
+                Branch(branchingAction, falseBranch, boundRecursiveCall trueBranch)
             | [] -> failwith "Missing choice"
-        | PickupNewIcon (iconType, next) ->
-            PickupNewIcon(iconType, boundAppendNewActionToTree next)
-        | PickupIcon (iconPrism, next) ->
-            PickupIcon(iconPrism, boundAppendNewActionToTree next)
-        | PickupExecutionStateParameter (parameterIndex, next) ->
-            PickupExecutionStateParameter(parameterIndex, boundAppendNewActionToTree next)
-        | PickupNumber (number, next) ->
-            PickupNumber(number, boundAppendNewActionToTree next)
-        | CancelPickup next ->
-            CancelPickup(boundAppendNewActionToTree next)
-        | PlacePickup (target, next) ->
-            PlacePickup(target, boundAppendNewActionToTree next)
-        | RemoveIcon (iconIndex, next) ->
-            RemoveIcon(iconIndex, boundAppendNewActionToTree next)
-        | RemoveIconParameter (targetPrism, position, next) ->
-            RemoveIconParameter(targetPrism, position, boundAppendNewActionToTree next)
-        | Blank -> newAction
+        | End -> newAction
 
     appendNewActionToTree' newAction (List.rev choicesList) actionTree
+
+let wrapSimpleExecutionAction action =
+    Linear(action, End)
+
+let wrapBranchingExecutionAction action =
+    Branch(action, End, End)
