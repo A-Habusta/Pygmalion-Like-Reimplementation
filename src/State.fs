@@ -19,8 +19,7 @@ type SingleTabState =
     static member TabParameters_ =
         _.TabParameters, (fun value a -> { a with TabParameters = value })
 
-type TabIndex = int
-type Tabs = Map<TabIndex, SingleTabState>
+type Tabs = SingleTabState list
 type TabPrism = Prism<Tabs, SingleTabState>
 
 let initialTabName = "Main"
@@ -42,8 +41,6 @@ type State =
     { CustomIcons : CustomIcons
       ExecutionState : ExecutionState
       Tabs : Tabs
-      AvailableTabIndex : TabIndex
-      CurrentTabPrism : TabPrism
       InputState : InputState }
 
     static member CustomIcons_ =
@@ -52,12 +49,9 @@ type State =
         _.ExecutionState, (fun value a -> { a with ExecutionState = value })
     static member Tabs_ =
         _.Tabs, (fun value a -> { a with Tabs = value })
-    static member AvailableTabIndex_ =
-        _.AvailableTabIndex, (fun value a -> { a with AvailableTabIndex = value })
-    static member CurrentTabPrism_ =
-        _.CurrentTabPrism, (fun value a -> { a with CurrentTabPrism = value })
     static member InputState_ =
         _.InputState, (fun value a -> { a with InputState = value })
+    static member CurrentTabPrism_ = State.Tabs_ >-> List.head_
 
 type InputAction =
     | SetConstantSpawnerText of string
@@ -67,13 +61,12 @@ type InputAction =
     | PressConstantSpawnerButton
 
 type Action =
-    | EditCustomIcon of CustomIconPrism
-    | RemoveTab of (Tabs -> Tabs)
     | InputAction of InputAction
     | IconAction of ExecutionActionTree
+    | CloseTopTab
 
 let private createCustomIcon (parameterCount : int) : CustomIcon =
-    { ActionTree = Blank
+    { ActionTree = End
       ParameterCount = parameterCount }
 
 let init () : State =
@@ -87,31 +80,34 @@ let init () : State =
         { TabName = initialTabName
           TabCustomIconPrism = Map.key_ initialCustomIconName
           TabParameters = [] }
-    let initialTabIndex = 0
-    let initialTabPrism = Map.key_ initialTabIndex
-    let initialTabs = Map.empty |> Map.add initialTabIndex initialTab
+    let initialTabs = [initialTab]
 
     { ExecutionState = initialExecutionState
       CustomIcons = Map.empty
       Tabs = initialTabs
-      AvailableTabIndex = incrementTabIndex initialTabIndex
-      CurrentTabPrism = initialTabPrism
       InputState = initialInputState }
 
-let stateIncrementTabIndex =
-    incrementTabIndex ^% State.AvailableTabIndex_
+let switchToTopTab (state : State) : State =
+    let firstTab = state ^. State.CurrentTabPrism_
+    state
 
-let createTab tabName tabCustomIconPrism parameters  (state : State) : State =
-    let newTabIndex = state.AvailableTabIndex
-    let newTab =
-        { TabName = tabName
-          TabCustomIconPrism = tabCustomIconPrism
-          TabParameters = parameters }
 
-    state |> Map.add newTabIndex newTab ^% State.Tabs_ |> stateIncrementTabIndex
+let removeTopTab (state : State) : State =
+    state |> List.tail ^% State.Tabs_ |> switchToTopTab
+
+let appendNewTabToTop tab (state : State) : State =
+    state |> cons tab ^% State.Tabs_ |> switchToTopTab
+
+let createTab tabName tabCustomIconPrism parameters  =
+    { TabName = tabName
+      TabCustomIconPrism = tabCustomIconPrism
+      TabParameters = parameters }
 
 let isCustomIconNameValid name =
     isText name && not (customIconNameContainsInvalidCharacter name)
+
+let wrapExecutionActionNode (action : ExecutionActionTree) : Action =
+    IconAction action
 
 let rec update (action : Action) =
     let updateWithInputAction inputAction =
@@ -140,23 +136,26 @@ let rec update (action : Action) =
                 | false -> state
                 | true ->
                     let constant = stringToUnderlyingNumberDataType constantText
-                    let newAction = PickupNumber (constant, Blank) |> IconAction
+                    let newAction =
+                        PickupNumber constant
+                        |> wrapSimpleExecutionAction
+                        |> wrapExecutionActionNode
                     update newAction state
 
     match action with
-    | RemoveTab remover ->
-        remover ^% State.Tabs_
+    | CloseTopTab ->
+        removeTopTab
     | InputAction inputAction ->
         updateWithInputAction inputAction
     | IconAction iconAction ->
         fun state ->
             let customIcons = state.CustomIcons
             let currentCustomIconPrism =
-                let optic = State.Tabs_ >-> state.CurrentTabPrism >?> SingleTabState.TabCustomIconPrism_
-                state ^. optic |> Option.get // We expect only valid names to be used
+                let optic = State.CurrentTabPrism_ >?> SingleTabState.TabCustomIconPrism_
+                state ^. optic |> Option.get // We expect only valid prisms to be used
 
             let actionTreePrism = State.CustomIcons_ >-> currentCustomIconPrism >?> CustomIcon.LocalActionTree_
             let choices = state.ExecutionState.CurrentBranchChoices
             state
-            |> applyLocalAction customIcons iconAction ^% State.ExecutionState_
+            |> applyExecutionActionNode customIcons iconAction ^% State.ExecutionState_
             |> appendNewActionToTree iconAction choices ^% actionTreePrism
