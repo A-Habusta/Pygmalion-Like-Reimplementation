@@ -52,6 +52,8 @@ type State =
         _.ExecutionState, (fun value a -> { a with ExecutionState = value })
     static member Tabs_ =
         _.Tabs, (fun value a -> { a with Tabs = value })
+    static member AvailableTabIndex_ =
+        _.AvailableTabIndex, (fun value a -> { a with AvailableTabIndex = value })
     static member CurrentTabPrism_ =
         _.CurrentTabPrism, (fun value a -> { a with CurrentTabPrism = value })
     static member InputState_ =
@@ -66,7 +68,6 @@ type InputAction =
 
 type Action =
     | EditCustomIcon of CustomIconPrism
-    | SwitchTab of TabPrism
     | RemoveTab of (Tabs -> Tabs)
     | InputAction of InputAction
     | IconAction of ExecutionActionTree
@@ -96,6 +97,18 @@ let init () : State =
       AvailableTabIndex = incrementTabIndex initialTabIndex
       CurrentTabPrism = initialTabPrism
       InputState = initialInputState }
+
+let stateIncrementTabIndex =
+    incrementTabIndex ^% State.AvailableTabIndex_
+
+let createTab tabName tabCustomIconPrism parameters  (state : State) : State =
+    let newTabIndex = state.AvailableTabIndex
+    let newTab =
+        { TabName = tabName
+          TabCustomIconPrism = tabCustomIconPrism
+          TabParameters = parameters }
+
+    state |> Map.add newTabIndex newTab ^% State.Tabs_ |> stateIncrementTabIndex
 
 let isCustomIconNameValid name =
     isText name && not (customIconNameContainsInvalidCharacter name)
@@ -131,10 +144,6 @@ let rec update (action : Action) =
                     update newAction state
 
     match action with
-    | EditCustomIcon prism ->
-        editCustomIcon prism
-    | SwitchTab prism ->
-        prism ^= State.CurrentTabPrism_
     | RemoveTab remover ->
         remover ^% State.Tabs_
     | InputAction inputAction ->
