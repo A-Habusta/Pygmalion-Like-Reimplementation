@@ -14,6 +14,9 @@ type BinaryOperation =
 
 exception TrapException
 
+let stringToUnderlyingNumberDataType (input : string) : UnderlyingNumberDataType =
+    int input
+
 let evalUnaryOperation (operation : UnaryOperation) rawOperand =
     match rawOperand with
     | Some operand -> operation.Op operand
