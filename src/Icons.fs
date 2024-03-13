@@ -125,7 +125,7 @@ let private invalidCustomIconNameCharacters = "\t\n\r_"
 
 let Trap : IconInstructionParameter = None
 
-exception ExtendedTrapException of CustomIconPrism * UnderlyingNumberDataType list
+exception RecursionTrapException of CustomIconPrism * UnderlyingNumberDataType list
 
 let transformInstructionParameters transform =
     transform ^% IconInstruction.Params_ // Optic.map
@@ -186,13 +186,13 @@ let rec private evaluateIconInstruction customIcons iconInstruction =
     | Binary(op, arg1, arg2) ->
         evalBinaryOperation op arg1 arg2
     | If(op) ->
-        Option.defaultWith (raise TrapException) op
+        Option.defaultWith (raise LocalTrapException) op
     | CallCustomIcon(iconPrism: CustomIconPrism, parameters) ->
         parameters
-        |> List.map (Option.defaultWith (raise TrapException))
+        |> List.map (Option.defaultWith (raise LocalTrapException))
         |> buildExecutionStateForCustomIcon customIcons iconPrism
         |> Optic.get ExecutionState.Result_
-        |> Option.defaultWith (raise TrapException) // Trap if result wasn't set
+        |> Option.defaultWith (raise LocalTrapException) // Trap if result wasn't set
 
 and private evaluateIconInstance customIcons drawnIcon =
     let iconInstruction = drawnIcon.IconInstruction
@@ -263,14 +263,14 @@ and buildExecutionStateForCustomIcon customIcons (customIconOptic : CustomIconPr
         customIcons ^. optic |> Option.get
     try
         applyExecutionActionTree customIcons actionTree baseExecutionState
-    with TrapException ->
-        let outerException = ExtendedTrapException(customIconOptic, parameters)
+    with LocalTrapException ->
+        let outerException = RecursionTrapException(customIconOptic, parameters)
         raise outerException
 
 let applyExecutionActionNode customIcons actionNode state=
     try
         applyExecutionActionNodeInternal customIcons actionNode state
-    with TrapException ->
+    with LocalTrapException ->
         state
 let appendNewActionToTree newAction choicesList (actionTree : ExecutionActionTree) =
     let rec appendNewActionToTree' newAction choicesList actionTree =

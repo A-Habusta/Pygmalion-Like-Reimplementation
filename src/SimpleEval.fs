@@ -10,7 +10,7 @@ type BinaryOperation =
     { Name : string
       Op : (UnderlyingNumberDataType -> UnderlyingNumberDataType -> UnderlyingNumberDataType) }
 
-exception TrapException
+exception LocalTrapException
 
 let stringToUnderlyingNumberDataType (input : string) : UnderlyingNumberDataType =
     int input
@@ -18,10 +18,10 @@ let stringToUnderlyingNumberDataType (input : string) : UnderlyingNumberDataType
 let evalUnaryOperation (operation : UnaryOperation) rawOperand =
     match rawOperand with
     | Some operand -> operation.Op operand
-    | None -> raise TrapException
+    | None -> raise LocalTrapException
 
 let evalBinaryOperation (operation : BinaryOperation) rawOperand1 rawOperand2 =
     match (rawOperand1, rawOperand2) with
-    | (None, _) -> raise TrapException
-    | (_, None) -> raise TrapException
+    | (None, _) -> raise LocalTrapException
+    | (_, None) -> raise LocalTrapException
     | (Some operand1, Some operand2) -> operation.Op operand1 operand2
