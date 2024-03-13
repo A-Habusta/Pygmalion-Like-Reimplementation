@@ -263,16 +263,16 @@ and buildExecutionStateForCustomIcon customIcons (customIconOptic : CustomIconPr
 
 let appendNewActionToTree newAction choicesList (actionTree : ExecutionActionTree) =
     let rec appendNewActionToTree' newAction choicesList actionTree =
-        let boundRecursiveCall = appendNewActionToTree' newAction choicesList
+        let boundRecursiveCall = appendNewActionToTree' newAction
         match actionTree with
         | Linear (simpleAction, next) ->
-            Linear(simpleAction, boundRecursiveCall next)
+            Linear(simpleAction, boundRecursiveCall choicesList next)
         | Branch (branchingAction, falseBranch, trueBranch) ->
             match choicesList with
             | false :: restChoices ->
-                Branch(branchingAction, boundRecursiveCall falseBranch, trueBranch)
+                Branch(branchingAction, boundRecursiveCall restChoices falseBranch, trueBranch)
             | true :: restChoices ->
-                Branch(branchingAction, falseBranch, boundRecursiveCall trueBranch)
+                Branch(branchingAction, falseBranch, boundRecursiveCall restChoices trueBranch)
             | [] -> failwith "Missing choice"
         | End -> newAction
 
