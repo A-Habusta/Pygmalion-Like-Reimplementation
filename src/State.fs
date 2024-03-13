@@ -65,8 +65,9 @@ type Action =
     | IconAction of ExecutionActionTree
     | CloseTopTab
 
-let private createCustomIcon (parameterCount : int) : CustomIcon =
-    { ActionTree = End
+let private createCustomIcon name (parameterCount : int) : CustomIcon =
+    { Name = name
+      ActionTree = End
       ParameterCount = parameterCount }
 
 let init () : State =
@@ -78,19 +79,20 @@ let init () : State =
 
     let initialTab =
         { TabName = initialTabName
-          TabCustomIconPrism = Map.key_ initialCustomIconName
+          TabCustomIconPrism = List.pos_ initialCustomIconIndex
           TabParameters = [] }
     let initialTabs = [initialTab]
 
     { ExecutionState = initialExecutionState
-      CustomIcons = Map.empty
+      CustomIcons = List.empty
       Tabs = initialTabs
       InputState = initialInputState }
 
 let switchToTopTab (state : State) : State =
-    let firstTab = state ^. State.CurrentTabPrism_
-    state
-
+    let tab = state ^. State.CurrentTabPrism_ |> Option.get
+    let parameters = tab.TabParameters
+    let executionState = buildExecutionStateForCustomIcon state.CustomIcons tab.TabCustomIconPrism parameters
+    state |> executionState ^= State.ExecutionState_
 
 let removeTopTab (state : State) : State =
     state |> List.tail ^% State.Tabs_ |> switchToTopTab
@@ -103,59 +105,74 @@ let createTab tabName tabCustomIconPrism parameters  =
       TabCustomIconPrism = tabCustomIconPrism
       TabParameters = parameters }
 
+let createTabFromCustomIcon customIcons customIconPrism parameters =
+    let customIcon = customIcons ^. customIconPrism |> Option.get
+    let name = customIcon.Name
+    createTab name customIconPrism parameters
+
 let isCustomIconNameValid name =
     isText name && not (customIconNameContainsInvalidCharacter name)
 
 let wrapExecutionActionNode (action : ExecutionActionTree) : Action =
     IconAction action
 
-let rec update (action : Action) =
-    let updateWithInputAction inputAction =
+let rec update (action : Action) state =
+    let onTrap prism parameters state =
+        let appendTab =
+            createTabFromCustomIcon state.CustomIcons prism parameters
+            |> appendNewTabToTop
+        state |> appendTab // TODO: Doesn't work, throws Trap
+    let updateWithInputAction inputAction state =
+        let appendReverse list1 list2 = List.append list2 list1
         match inputAction with
         | SetConstantSpawnerText text ->
-            text ^= (State.InputState_ >-> InputState.ConstantSpawnerText_)
+            state |> text ^= (State.InputState_ >-> InputState.ConstantSpawnerText_)
         | SetCustomIconCreatorName name ->
-            name ^= (State.InputState_ >-> InputState.CustomIconCreatorName_)
+            state |> name ^= (State.InputState_ >-> InputState.CustomIconCreatorName_)
         | SetCustomIconParameterCount count ->
-            count ^= (State.InputState_ >-> InputState.CustomIconCreatorParameterCount_)
+            state |> count ^= (State.InputState_ >-> InputState.CustomIconCreatorParameterCount_)
         | PressCustomIconCreatorButton ->
-            fun state ->
-                let customIconName = state.InputState.CustomIconCreatorName
-                let parameterCountText = state.InputState.CustomIconCreatorParameterCount
-                match (isNumber parameterCountText, isCustomIconNameValid customIconName) with
-                | (false, _) -> state
-                | (_, false) -> state
-                | (true, true) ->
-                    let parameterCount = int parameterCountText
-                    let customIcon = createCustomIcon parameterCount
-                    state |> Map.add customIconName customIcon ^% State.CustomIcons_
+            let customIconName = state.InputState.CustomIconCreatorName
+            let parameterCountText = state.InputState.CustomIconCreatorParameterCount
+            match (isNumber parameterCountText, isCustomIconNameValid customIconName) with
+            | (false, _) -> state
+            | (_, false) -> state
+            | (true, true) ->
+                let parameterCount = int parameterCountText
+                let customIcon = createCustomIcon customIconName parameterCount
+                state |> appendReverse [customIcon] ^% State.CustomIcons_
         | PressConstantSpawnerButton ->
-            fun state ->
-                let constantText = state.InputState.ConstantSpawnerText
-                match isNumber constantText with
-                | false -> state
-                | true ->
-                    let constant = stringToUnderlyingNumberDataType constantText
-                    let newAction =
-                        PickupNumber constant
-                        |> wrapSimpleExecutionAction
-                        |> wrapExecutionActionNode
-                    update newAction state
+            let constantText = state.InputState.ConstantSpawnerText
+            match isNumber constantText with
+            | false -> state
+            | true ->
+                let constant = stringToUnderlyingNumberDataType constantText
+                let newAction =
+                    PickupNumber constant
+                    |> wrapSimpleExecutionAction
+                    |> wrapExecutionActionNode
+                update newAction state
 
     match action with
     | CloseTopTab ->
-        removeTopTab
+        try
+            removeTopTab state
+        with RecursionTrapException (offendingCustomIcon, parameters) ->
+            onTrap offendingCustomIcon parameters state
     | InputAction inputAction ->
-        updateWithInputAction inputAction
+        updateWithInputAction inputAction state
     | IconAction iconAction ->
-        fun state ->
-            let customIcons = state.CustomIcons
-            let currentCustomIconPrism =
-                let optic = State.CurrentTabPrism_ >?> SingleTabState.TabCustomIconPrism_
-                state ^. optic |> Option.get // We expect only valid prisms to be used
+        let customIcons = state.CustomIcons
+        let currentCustomIconPrism =
+            let optic = State.CurrentTabPrism_ >?> SingleTabState.TabCustomIconPrism_
+            state ^. optic |> Option.get // We expect only valid prisms to be used
 
-            let actionTreePrism = State.CustomIcons_ >-> currentCustomIconPrism >?> CustomIcon.LocalActionTree_
-            let choices = state.ExecutionState.CurrentBranchChoices
+        let actionTreePrism = State.CustomIcons_ >-> currentCustomIconPrism >?> CustomIcon.LocalActionTree_
+        let choices = state.ExecutionState.CurrentBranchChoices
+
+        try
             state
             |> applyExecutionActionNode customIcons iconAction ^% State.ExecutionState_
             |> appendNewActionToTree iconAction choices ^% actionTreePrism
+        with RecursionTrapException (offendingCustomIcon, parameters) ->
+            onTrap offendingCustomIcon parameters state

@@ -3,6 +3,7 @@ module PygmalionReimplementation.Icons
 open Aether
 open Aether.Operators
 
+open System
 open PygmalionReimplementation.Utils
 open PygmalionReimplementation.SimpleEval
 
@@ -63,7 +64,8 @@ and MovableObjectTarget =
     | ExecutionResult
 
 and CustomIcon =
-    { ParameterCount : int
+    { Name : string
+      ParameterCount : int
       ActionTree : ExecutionActionTree }
 
     static member ParameterCount_ =
@@ -90,11 +92,12 @@ and ExecutionActionTree =
     | Branch of action : BranchingExecutionAction * falseBranch : ExecutionActionTree * trueBranch : ExecutionActionTree
     | End
 
-and CustomIconName = string
-and CustomIcons = Map<CustomIconName, CustomIcon>
+and CustomIconIndex = int
+and CustomIcons = CustomIcon list
 and CustomIconPrism = Prism<CustomIcons, CustomIcon>
 
-let initialCustomIconName = "_main"
+let initialCustomIconName = "Main"
+let initialCustomIconIndex = 0
 
 type ExecutionState =
     { HeldObject : MovableObject

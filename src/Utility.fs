@@ -37,6 +37,9 @@ let listLast list =
         | x :: xs -> listLast' xs x
     listLast' list (List.head list)
 
+let listAppend value list =
+    list @ [value]
+
 let isNumber (text : string) =
     match Int32.TryParse text with
     | true, _ -> true
