@@ -72,7 +72,7 @@ and CustomIcon =
     static member LocalActionTree_ =
         _.ActionTree, (fun newValue instance -> { instance with ActionTree = newValue })
 
-and SimpleExecutionAction =
+and NormalExecutionAction =
     | EvaluateIcon of DrawnIconPrism
     | PickupNewIcon of IconType
     | PickupIcon of DrawnIconPrism
@@ -83,16 +83,13 @@ and SimpleExecutionAction =
     | RemoveIcon of remover : (DrawnIcons -> DrawnIcons)
     | RemoveIconParameter of target : DrawnIconPrism * position : int
 
-and BranchingExecutionAction =
-    | EvaluateIf of DrawnIconPrism
-
 and FinalExecutionAction =
     | SaveResult
     | Trap
 
 and ExecutionActionTree =
-    | Linear of action : SimpleExecutionAction * next : ExecutionActionTree
-    | Branch of action : BranchingExecutionAction * falseBranch : ExecutionActionTree * trueBranch : ExecutionActionTree
+    | Linear of action : NormalExecutionAction * next : ExecutionActionTree
+    | Branch of action : NormalExecutionAction * falseBranch : ExecutionActionTree * trueBranch : ExecutionActionTree
     | End of action : FinalExecutionAction
 
 
@@ -189,7 +186,7 @@ let rec private evaluateIconInstruction customIcons iconInstruction =
         evalUnaryOperation op arg
     | Binary(op, arg1, arg2) ->
         evalBinaryOperation op arg1 arg2
-    | If(op) -> op
+    | If op -> op
     | CallCustomIcon(iconPrism: CustomIconPrism, parameters) ->
         let allParametersPresent = parameters |> List.tryFind Option.isNone |> Option.isNone
         if allParametersPresent then
@@ -198,23 +195,25 @@ let rec private evaluateIconInstruction customIcons iconInstruction =
         else
             None
 
+and private appendIfResultToState ifResult =
+    cons (intToBool ifResult) ^% ExecutionState.CurrentBranchChoices_
+
 and private evaluateIconInstance customIcons drawnIcon =
     let iconInstruction = drawnIcon.IconInstruction
     let result = evaluateIconInstruction customIcons iconInstruction
     {drawnIcon with Result = result}
 
-and private evaluateIcon customIcons iconPrism : ExecutionState -> ExecutionState =
-    evaluateIconInstance customIcons ^% (ExecutionState.LocalIcons_ >-> iconPrism)
+and private evaluateIcon customIcons iconPrism state =
+    let iconPrism = ExecutionState.LocalIcons_ >-> iconPrism
+    let iconOpt = state ^. iconPrism
 
-and private evaluateIf customIcons ifPrism state =
-    let newState = evaluateIcon customIcons ifPrism state
-    let resultOpt =
-        let resultPrism = ExecutionState.LocalIcons_ >-> ifPrism >?> DrawnIcon.Result_
-        newState ^. resultPrism |> Option.flatten
-    match resultOpt with
-    | None -> newState
-    | Some result ->
-        newState |> cons (intToBool result) ^% ExecutionState.CurrentBranchChoices_
+    let stateWithEvaledIcon = state |> evaluateIconInstance customIcons ^% iconPrism
+
+    match iconOpt with
+    | Some { IconInstruction = If _; Result = Some result } ->
+        stateWithEvaledIcon |> appendIfResultToState result
+    | _ -> stateWithEvaledIcon
+
 
 and applyExecutionActionNode customIcons (actionNode : ExecutionActionTree) state =
     let applySimpleExecutionAction customIcons action =
@@ -240,10 +239,6 @@ and applyExecutionActionNode customIcons (actionNode : ExecutionActionTree) stat
             remover ^% ExecutionState.LocalIcons_
         | RemoveIconParameter (targetPrism, position) ->
             setParameterAtPosition targetPrism position None
-    let applyBranchingExecutionAction customIcons action =
-        match action with
-        | EvaluateIf (ifPrism) ->
-            evaluateIf customIcons ifPrism
     let saveResult state =
         match state.HeldObject with
         | Number result -> {state with Result = Some result}
@@ -253,7 +248,7 @@ and applyExecutionActionNode customIcons (actionNode : ExecutionActionTree) stat
     | Linear (action, _) ->
         applySimpleExecutionAction customIcons action state
     | Branch (action, _, _) ->
-        applyBranchingExecutionAction customIcons action state
+        applySimpleExecutionAction customIcons action state
     | End action ->
         match action with
         | Trap -> InternalRecursionTrapException state |> raise
