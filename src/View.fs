@@ -3,19 +3,54 @@ module PygmalionReimplementation.View
 open System
 open Feliz
 
+open Aether
+open Aether.Operators
+
+open PygmalionReimplementation.SimpleEval
 open PygmalionReimplementation.State
 open PygmalionReimplementation.Icons
 open PygmalionReimplementation.Utils
 
-let private defaultUnaryOperators =
-    [ "+"; "-"; "!" ]
+type UnaryOperation =
+    { Name : string
+      Op : UnaryIconFunction }
+type BinaryOperation =
+    { Name : string
+      Op : BinaryIconFunction }
+
+let private defaultUnaryOperators : UnaryOperation list =
+    [
+        { Name = "+"; Op = id }
+        { Name = "-"; Op = fun x -> -x }
+        { Name = "!"; Op = fun x -> if x = FalseValue then TrueValue else FalseValue }
+    ]
+
+let private boolOutputToInt = binaryFuncResultConverter boolToInt
 let private defaultBinaryOperators =
-    [ "+"; "-"; "*"; "/"; "%"; "="; "<>"; "<"; "<="; ">"; ">="; "&&"; "||"; ]
+    [
+        { Name = "+"; Op = (+) }
+        { Name = "-"; Op = (-) }
+        { Name = "*"; Op = (*) }
+        { Name = "/"; Op = (/) }
+        { Name = "%"; Op = (%) }
+
+        { Name = "="; Op = boolOutputToInt (=) }
+        { Name = "<>"; Op = boolOutputToInt (<>) }
+        { Name = "<"; Op = boolOutputToInt (<) }
+        { Name = "<="; Op = boolOutputToInt (<=) }
+        { Name = ">"; Op = boolOutputToInt (>) }
+        { Name = ">="; Op = boolOutputToInt (>=) }
+
+        { Name = "&&"; Op = boolOutputToInt (fun x y -> x = FalseValue || y = FalseValue |> not) }
+        { Name = "||"; Op = boolOutputToInt (fun x y -> x = FalseValue && y = FalseValue |> not) }
+    ]
 
 let private unknownIdentifier = "?"
 
+let private
+
 let private stateIsHoldingObject (state : State) =
-    match state.HeldObject with
+    match state. with
     | NoObject -> false
     | _ -> true
 
@@ -38,7 +73,7 @@ let private parameterToString (state : State) (parameter : IconInstructionParame
         let param = getMasterCustomIconParameters state |> List.item position
         sprintf "%d" param
     | Constant value -> sprintf "%d" value
-    | Trap -> String.Empty
+    | End -> String.Empty
 
 let private renderIcon
     (icon : DrawnIcon)
@@ -67,7 +102,7 @@ let private renderIcon
                         dispatch (PlacePickup(IconParameter(id, index))) )
                     prop.children [
                         text
-                        if parameter <> Trap then
+                        if parameter <> End then
                             deleteButton
                     ]
                     prop.className "icon-parameter"
@@ -402,7 +437,7 @@ let renderIconCanvas (state : State) (dispatch : Message -> unit) : ReactElement
         ]
     canvas
 
-let render (state : State) (dispatch : Message -> unit) : ReactElement =
+let render (state : State) (dispatch : Action -> unit) : ReactElement =
     Html.div [
         prop.id "root-container"
         prop.children [

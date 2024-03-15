@@ -8,8 +8,8 @@ open PygmalionReimplementation.Utils
 open PygmalionReimplementation.SimpleEval
 
 type IconInstruction =
-    | Unary of operator : UnaryOperation * IconInstructionParameter
-    | Binary of operator : BinaryOperation * IconInstructionParameter * IconInstructionParameter
+    | Unary of operator : UnaryIconFunction * IconInstructionParameter
+    | Binary of operator : BinaryIconFunction * IconInstructionParameter * IconInstructionParameter
     | If of IconInstructionParameter
     | CallCustomIcon of customIconName : CustomIconPrism * IconInstructionParameter list
 
@@ -29,8 +29,8 @@ type IconInstruction =
         (view, update)
 
 and IconType =
-    | BaseUnaryIcon of operation : UnaryOperation
-    | BaseBinaryIcon of operation : BinaryOperation
+    | BaseUnaryIcon of operation : UnaryIconFunction
+    | BaseBinaryIcon of operation : BinaryIconFunction
     | BaseIfIcon
     | CustomIcon of customIconName : CustomIconPrism * parameterCount : int
 
