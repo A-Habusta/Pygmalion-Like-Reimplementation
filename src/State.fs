@@ -23,7 +23,6 @@ type Tabs = SingleTabState list
 type TabPrism = Prism<Tabs, SingleTabState>
 
 let initialTabName = "Main"
-let incrementTabIndex = (+) 1
 
 type InputState =
     { ConstantSpawnerText : string

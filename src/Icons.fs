@@ -8,8 +8,8 @@ open PygmalionReimplementation.Utils
 open PygmalionReimplementation.SimpleEval
 
 type IconInstruction =
-    | Unary of operator : UnaryIconFunction * IconInstructionParameter
-    | Binary of operator : BinaryIconFunction * IconInstructionParameter * IconInstructionParameter
+    | Unary of operator : UnaryOperation * IconInstructionParameter
+    | Binary of operator : BinaryOperation * IconInstructionParameter * IconInstructionParameter
     | If of IconInstructionParameter
     | CallCustomIcon of customIconName : CustomIconPrism * IconInstructionParameter list
 
@@ -27,12 +27,6 @@ type IconInstruction =
             | If _ -> If(parameters[0])
             | CallCustomIcon (iconType, _) -> CallCustomIcon(iconType, parameters)
         (view, update)
-
-and IconType =
-    | BaseUnaryIcon of operation : UnaryIconFunction
-    | BaseBinaryIcon of operation : BinaryIconFunction
-    | BaseIfIcon
-    | CustomIcon of customIconName : CustomIconPrism * parameterCount : int
 
 and DrawnIcon =
     { X : int
@@ -55,7 +49,7 @@ and DrawnIconPrism = Prism<DrawnIcons, DrawnIcon>
 and MovableObject =
     | NoObject
     | ExistingIcon of DrawnIconPrism
-    | NewIcon of IconType
+    | NewIcon of IconInstruction
     | Number of UnderlyingNumberDataType
 
 and MovableObjectTarget =
@@ -67,14 +61,16 @@ and CustomIcon =
       ParameterCount : int
       ActionTree : ExecutionActionTree }
 
+    static member Name_ =
+        _.Name, (fun newValue instance -> { instance with CustomIcon.Name = newValue })
     static member ParameterCount_ =
         _.ParameterCount, (fun newValue instance -> { instance with ParameterCount = newValue })
     static member LocalActionTree_ =
         _.ActionTree, (fun newValue instance -> { instance with ActionTree = newValue })
 
-and NormalExecutionAction =
-    | EvaluateIcon of DrawnIconPrism
-    | PickupNewIcon of IconType
+and SimpleExecutionAction =
+    | EvaluateSimpleIcon of DrawnIconPrism
+    | PickupNewIcon of IconInstruction
     | PickupIcon of DrawnIconPrism
     | PickupNumber of UnderlyingNumberDataType
     | PickupExecutionStateParameter of parameterIndex : int
@@ -83,13 +79,16 @@ and NormalExecutionAction =
     | RemoveIcon of remover : (DrawnIcons -> DrawnIcons)
     | RemoveIconParameter of target : DrawnIconPrism * position : int
 
+and BranchingExecutionAction =
+    | EvaluateBranchingIcon of DrawnIconPrism
+
 and FinalExecutionAction =
     | SaveResult
     | Trap
 
 and ExecutionActionTree =
-    | Linear of action : NormalExecutionAction * next : ExecutionActionTree
-    | Branch of action : NormalExecutionAction * falseBranch : ExecutionActionTree * trueBranch : ExecutionActionTree
+    | Linear of action : SimpleExecutionAction * next : ExecutionActionTree
+    | Branch of action : BranchingExecutionAction * falseBranch : ExecutionActionTree * trueBranch : ExecutionActionTree
     | End of action : FinalExecutionAction
 
 
@@ -112,7 +111,7 @@ type ExecutionState =
     static member LocalIcons_ =
         _.LocalIcons, (fun newValue instance -> { instance with LocalIcons = newValue })
     static member CurrentBranchChoices_ =
-        _.CurrentBranchChoices , (fun newValue instance -> { instance with CurrentBranchChoices = newValue })
+        _.CurrentBranchChoices, (fun newValue instance -> { instance with CurrentBranchChoices = newValue })
     static member Parameters_ =
         _.Parameters, (fun newValue instance -> { instance with Parameters = newValue })
     static member Result_ =
@@ -137,14 +136,7 @@ let replaceParameter position newParameter instruction =
     let transform = listReplaceIndex position newParameter
     transformInstructionParameters transform instruction
 
-let createEmptyIconInstruction (iconType : IconType) =
-    match iconType with
-    | BaseUnaryIcon op -> Unary(op, None)
-    | BaseBinaryIcon op -> Binary(op, None, None)
-    | BaseIfIcon -> If(None)
-    | CustomIcon(customIconPrism, paramCount) -> CallCustomIcon(customIconPrism, List.init paramCount (fun _ -> None))
-
-let createEmptyDrawnIcon x y instruction =
+let createDrawnIcon x y instruction =
     { IconInstruction = instruction
       Result = None
       X = x
@@ -159,9 +151,8 @@ let private setParameterAtPosition targetPrism position newParameter =
     (replaceParameter position newParameter) ^% fullTargetOptic
 
 let private placePickup target state =
-    let createNewIconAt x y iconType =
-        let newDrawnIcon =
-            createEmptyIconInstruction iconType |> createEmptyDrawnIcon x y
+    let createNewIconAt x y instruction =
+        let newDrawnIcon = createDrawnIcon x y instruction
         state |> cons newDrawnIcon ^% ExecutionState.LocalIcons_
 
     let placeIconAt x y targetPrism =
@@ -172,8 +163,8 @@ let private placePickup target state =
 
     let heldObject = state ^. ExecutionState.HeldObject_
     match (target, heldObject) with
-    | (Position (x, y), NewIcon iconType) ->
-        createNewIconAt x y iconType
+    | (Position (x, y), NewIcon instruction) ->
+        createNewIconAt x y instruction
     | (Position (x, y), ExistingIcon iconPrism) ->
         placeIconAt x y iconPrism
     | (IconParameter (targetPrism, position), Number number) ->
@@ -203,25 +194,24 @@ and private evaluateIconInstance customIcons drawnIcon =
     let result = evaluateIconInstruction customIcons iconInstruction
     {drawnIcon with Result = result}
 
-and private evaluateIcon customIcons iconPrism state =
-    let iconPrism = ExecutionState.LocalIcons_ >-> iconPrism
-    let iconOpt = state ^. iconPrism
+and private evaluateIcon customIcons iconPrism =
+    evaluateIconInstance customIcons ^% (ExecutionState.LocalIcons_ >-> iconPrism)
 
-    let stateWithEvaledIcon = state |> evaluateIconInstance customIcons ^% iconPrism
-
-    match iconOpt with
+and private evaluateBranchingIcon customIcons iconPrism state =
+    let stateWithEvaluatedIcon = evaluateIcon customIcons iconPrism state
+    let icon =  stateWithEvaluatedIcon ^. (ExecutionState.LocalIcons_ >-> iconPrism)
+    match icon with
     | Some { IconInstruction = If _; Result = Some result } ->
-        stateWithEvaledIcon |> appendIfResultToState result
-    | _ -> stateWithEvaledIcon
-
+        stateWithEvaluatedIcon |> appendIfResultToState result
+    | _ -> stateWithEvaluatedIcon
 
 and applyExecutionActionNode customIcons (actionNode : ExecutionActionTree) state =
     let applySimpleExecutionAction customIcons action =
         match action with
-        | EvaluateIcon iconPrism ->
+        | EvaluateSimpleIcon iconPrism ->
             evaluateIcon customIcons iconPrism
-        | PickupNewIcon iconType ->
-            (NewIcon iconType) ^= ExecutionState.HeldObject_
+        | PickupNewIcon instruction ->
+            (NewIcon instruction) ^= ExecutionState.HeldObject_
         | PickupIcon iconPrism->
             (ExistingIcon iconPrism) ^= ExecutionState.HeldObject_
         | PickupNumber parameter ->
@@ -239,21 +229,27 @@ and applyExecutionActionNode customIcons (actionNode : ExecutionActionTree) stat
             remover ^% ExecutionState.LocalIcons_
         | RemoveIconParameter (targetPrism, position) ->
             setParameterAtPosition targetPrism position None
-    let saveResult state =
-        match state.HeldObject with
-        | Number result -> {state with Result = Some result}
-        | _ -> InvalidOperationException("Tried to save invalid object to result") |> raise
+    let applyBranchingExecutionAction customIcons action state =
+        match action with
+        | EvaluateBranchingIcon iconPrism ->
+            evaluateBranchingIcon customIcons iconPrism state
+    let applyFinalExecutionAction action state =
+        let saveResult state =
+            match state.HeldObject with
+            | Number result -> {state with Result = Some result}
+            | _ -> InvalidOperationException("Tried to save invalid object to result") |> raise
+        match action with
+        | Trap -> InternalRecursionTrapException state |> raise
+        | SaveResult ->
+            saveResult state
 
     match actionNode with
     | Linear (action, _) ->
         applySimpleExecutionAction customIcons action state
     | Branch (action, _, _) ->
-        applySimpleExecutionAction customIcons action state
+        applyBranchingExecutionAction customIcons action state
     | End action ->
-        match action with
-        | Trap -> InternalRecursionTrapException state |> raise
-        | SaveResult ->
-            saveResult state
+        applyFinalExecutionAction action state
 
 and private applyExecutionActionTree customIcons (actionTree : ExecutionActionTree) state =
     let stateWithAppliedHeadAction = applyExecutionActionNode customIcons actionTree state
@@ -303,5 +299,5 @@ let wrapSimpleExecutionAction action =
 let wrapBranchingExecutionAction action =
     Branch(action, defaultEnd, defaultEnd)
 
-let wrapResultSaveAction =
+let resultSaveAction =
     End SaveResult

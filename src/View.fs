@@ -11,13 +11,6 @@ open PygmalionReimplementation.State
 open PygmalionReimplementation.Icons
 open PygmalionReimplementation.Utils
 
-type UnaryOperation =
-    { Name : string
-      Op : UnaryIconFunction }
-type BinaryOperation =
-    { Name : string
-      Op : BinaryIconFunction }
-
 let private defaultUnaryOperators : UnaryOperation list =
     [
         { Name = "+"; Op = id }
@@ -45,69 +38,63 @@ let private defaultBinaryOperators =
         { Name = "||"; Op = boolOutputToInt (fun x y -> x = FalseValue && y = FalseValue |> not) }
     ]
 
-let private unknownIdentifier = "?"
-
-let private
-
-let private stateIsHoldingObject (state : State) =
-    match state. with
-    | NoObject -> false
-    | _ -> true
-
-let private iconIsHeld (state : State) (id : IconID) =
-    match state.HeldObject with
-    | ExistingIcon heldId -> heldId = id
-    | _ -> false
-
 let private mouseEventPreventPropagation (e : Browser.Types.MouseEvent) =
     e.preventDefault()
     e.stopPropagation()
 
-let private parameterToString (state : State) (parameter : IconInstructionParameter) =
+let wrapSimpleAction action =
+    action |> wrapSimpleExecutionAction |> IconAction
+
+let wrapBranchingAction action =
+    action |> wrapBranchingExecutionAction |> IconAction
+
+let private parameterToString (parameter : IconInstructionParameter) =
     match parameter with
-    | LocalIconInstructionReference id ->
-        match getIconResultFromState state id with
-        | Some result -> sprintf "%A" result
-        | None -> unknownIdentifier
-    | BaseIconParameter position ->
-        let param = getMasterCustomIconParameters state |> List.item position
-        sprintf "%d" param
-    | Constant value -> sprintf "%d" value
-    | End -> String.Empty
+    | Some number -> sprintf "%d" number
+    | None -> ""
+
+let stateIsHoldingObject state  =
+    match state.ExecutionState.HeldObject with
+    | NoObject -> false
+    | _ -> true
 
 let private renderIcon
-    (icon : DrawnIcon)
-    (id : IconID)
     (state : State)
-    (dispatch : Message -> unit) : ReactElement =
+    (iconPrism : DrawnIconPrism)
+    (icon : DrawnIcon)
+    (dispatch : Action -> unit)
+    : ReactElement =
+    let dispatchSimple = wrapSimpleAction >> dispatch
+    let stateIsHoldingObject = stateIsHoldingObject state
+
     let renderIconIOField =
         let renderParameter (index : int) (parameter : IconInstructionParameter) =
             let deleteButton =
                 Html.div [
                     prop.text "X"
+                    prop.className "icon-parameter-delete"
                     prop.onClick (fun e ->
                         mouseEventPreventPropagation e
-                        dispatch (RemoveIconParameter(id, index)) )
-                    prop.className "icon-parameter-delete"
+                        RemoveIconParameter(iconPrism, index) |> dispatchSimple )
                 ]
             let text =
                 Html.div [
-                    prop.text (parameterToString state parameter)
+                    prop.text (parameterToString parameter)
                     prop.className "icon-parameter-text"
                 ]
-            let parameter =
+            let parameterElement =
                 Html.div [
                     prop.onClick (fun e ->
                         mouseEventPreventPropagation e
-                        dispatch (PlacePickup(IconParameter(id, index))) )
+                        IconParameter(iconPrism, index) |> PlacePickup |> dispatchSimple )
                     prop.children [
                         text
-                        if parameter <> End then
+                        if parameter.IsSome then
                             deleteButton
                     ]
                     prop.className "icon-parameter"
                 ]
-            parameter
+            parameterElement
 
         let decorateIcon (icon : DrawnIcon) (renderedParameters : ReactElement list) =
             let iconDecoratorText (text : string) =
@@ -118,31 +105,31 @@ let private renderIcon
 
             match icon.IconInstruction with
             | Unary (op, _) ->
-                [ iconDecoratorText op; renderedParameters[0] ]
+                [ iconDecoratorText op.Name ; renderedParameters[0] ]
             | Binary (op, _, _) ->
-                [ renderedParameters[0]; iconDecoratorText op; renderedParameters[1] ]
+                [ renderedParameters[0]; iconDecoratorText op.Name; renderedParameters[1] ]
             | If (_) -> [
-                    let visibleId = GetDrawnIconIdCharacters id DrawnIconVisibleIdCharacters
-                    let ifName = $"If {visibleId}"
-                    iconDecoratorText ifName
+                    iconDecoratorText "If"
                     renderedParameters[0]
                 ]
-            | CallCustomIcon (name, _) ->
+            | CallCustomIcon (prism, _) ->
+                let name =
+                    state ^. (State.CustomIcons_ >-> prism >?> CustomIcon.Name_)
+                    |> Option.defaultValue "Invalid Icon Call"
                 iconDecoratorText name :: renderedParameters
-            | TopLevelTrap -> [ Html.text "Trap" ]
 
         let IOField =
-            match getIconResultFromState state id with
+            match icon.Result with
             | Some result ->
                 Html.div [
                     prop.className "icon-result"
                     prop.text (sprintf "%d" result)
                 ]
-            | None ->
+            | _ ->
                 Html.div [
                     prop.className "icon-io-field"
                     prop.children (
-                        List.mapi renderParameter (extractInstructionParameters icon.IconInstruction)
+                        List.mapi renderParameter (icon ^. (DrawnIcon.IconInstruction_ >-> IconInstruction.Params_))
                         |> decorateIcon icon )
                 ]
         IOField
@@ -150,53 +137,46 @@ let private renderIcon
     let renderIconActions =
         let removeHandler e =
             mouseEventPreventPropagation e
-            dispatch (RemoveIcon id)
-        let getReferenceHandler e =
-            dispatch (PickupIconParameter (LocalIconInstructionReference(id)))
+            RemoveIcon id |> dispatchSimple
+        let getResult e =
+            icon.Result
+            |> Option.defaultValue 0
+            |> PickupNumber
+            |> dispatchSimple
         let evalHandler e =
             mouseEventPreventPropagation e
-            dispatch (EvaluateIcon(id))
+            match icon.IconInstruction with
+            | Unary _ -> EvaluateSimpleIcon iconPrism |> dispatchSimple
+            | Binary _ -> EvaluateSimpleIcon iconPrism |> dispatchSimple
+            | If _ -> EvaluateBranchingIcon iconPrism |> wrapBranchingAction |> dispatch
+            | CallCustomIcon _ -> EvaluateSimpleIcon iconPrism |> dispatchSimple
         let moveHandler e =
             mouseEventPreventPropagation e
-            dispatch (PickupIcon id)
+            PickupIcon iconPrism |> dispatchSimple
 
-        let iconIsEvaluated = Option.isSome (getIconResultFromState state id)
+        let iconIsEvaluated = icon.Result.IsSome
 
+        let createButton (name : string) action (className : string) =
+            Html.button [
+                prop.text name
+                prop.onClick action
+                prop.disabled stateIsHoldingObject
+                prop.className className
+            ]
         let removeButton =
-            Html.button [
-                prop.text "Remove"
-                prop.onClick removeHandler
-                prop.disabled (iconIsHeld state id)
-                prop.className "icon-remove-button"
-            ]
-        let getReferenceButton =
-            Html.button [
-                prop.text "Get Reference"
-                prop.onClick getReferenceHandler
-                prop.disabled (iconIsHeld state id)
-                prop.className "icon-get-reference-button"
-            ]
+            createButton "Remove" removeHandler "icon-remove-button"
+        let getResultButton =
+            createButton "Get Result" getResult "icon-get-result-button"
         let evalButton =
-            Html.button [
-                prop.text "Eval"
-                prop.onClick evalHandler
-                prop.disabled (iconIsHeld state id || iconIsEvaluated)
-                prop.className "icon-eval-button"
-            ]
+            createButton "Eval" evalHandler "icon-eval-button"
         let moveButton =
-            Html.button [
-                prop.text "Move"
-                prop.onClick moveHandler
-                prop.disabled (iconIsHeld state id)
-                prop.className "icon-move-button"
-            ]
+            createButton "Move" moveHandler "icon-move-button"
         let buttons =
             Html.div [
                 prop.className "icon-button-container"
                 prop.children [
                     removeButton
-                    getReferenceButton
-                    evalButton
+                    if iconIsEvaluated then getResultButton else evalButton
                     moveButton
                 ]
             ]
@@ -217,25 +197,22 @@ let private renderIcon
         ]
     icon
 
-let private renderIconInstances (state : State) (dispatch : Message -> unit) : ReactElement list =
-    getIconTableFromState state
-    |> Map.toList
-    |> List.map (fun (id, icon) -> renderIcon icon id state dispatch)
+let private renderIconInstances (state : State) (dispatch : Action -> unit) : ReactElement list =
+    state.ExecutionState.LocalIcons
+    |> List.mapi (fun index icon -> renderIcon state (List.pos_ index) icon dispatch)
 
-let private defaultIconSpawnersView (dispatch : Message -> unit) : ReactElement =
-    let spawnerView (text : string) (iconType : IconType) (dispatch : Message -> unit) : ReactElement =
+let private defaultIconSpawnersView (dispatch : Action -> unit) : ReactElement =
+    let spawnerView (text : string) (iconInstruction : IconInstruction) (dispatch : Action -> unit) : ReactElement =
         Html.button [
             prop.className "spawner-button"
             prop.text text
-            prop.onClick (fun _ -> dispatch (PickupNewIcon iconType))
+            prop.onClick (fun _ -> PickupNewIcon iconInstruction |> wrapSimpleAction |> dispatch)
         ]
-    let spawnerListTemplate
-        (sectionName : string)
-        typeConstructor
-        iconSource =
+    let spawnerListTemplate (sectionName : string) iconSource =
         let spawnerList =
             List.map
-                (fun text -> Html.li [ spawnerView text (typeConstructor text) dispatch ])
+                (fun (text, instruction) ->
+                    Html.li [ spawnerView text instruction dispatch ])
         Html.div [
             Html.h4 sectionName
             Html.ul [
@@ -243,33 +220,36 @@ let private defaultIconSpawnersView (dispatch : Message -> unit) : ReactElement 
             ]
         ]
     let defaultIconSpawners =
+        let unaryOperatorsSpawnerList =
+            List.map (fun (op : UnaryOperation) ->
+                (op.Name, Unary (op, None))) defaultUnaryOperators
+        let binaryOperatorsSpawnerList =
+            List.map (fun (op : BinaryOperation) ->
+                (op.Name, Binary (op, None, None))) defaultBinaryOperators
         Html.div [
             prop.id "default-icon-spawners"
             prop.children [
                 spawnerListTemplate
                     "Unary"
-                    (fun op -> BaseUnaryIcon op)
-                    defaultUnaryOperators
+                    unaryOperatorsSpawnerList
                 spawnerListTemplate
                     "Binary"
-                    (fun op -> BaseBinaryIcon op)
-                    defaultBinaryOperators
+                    binaryOperatorsSpawnerList
                 spawnerListTemplate
                     "Special"
-                    (fun _ -> BaseIfIcon)
-                    [ "If" ]
+                    [ ("If", If None)]
             ]
         ]
     defaultIconSpawners
 
-let private customIconSpawnersView (state : State) (dispatch : Message -> unit) : ReactElement =
-    let customIconSpawnerView (iconTypeName : string) (iconType : CustomIconType) =
+let private customIconSpawnersView (state : State) (dispatch : Action -> unit) : ReactElement =
+    let customIconSpawnerView (iconTypeName : string) (iconPrism : CustomIconPrism) =
         Html.div [
             prop.id "custom-icon-spawners"
             prop.children [
                 Html.button [
                     prop.text iconTypeName
-                    if not (CustomIconNameContainsInvalidCharacter iconTypeName) then
+                    if not (customIconNameContainsInvalidCharacter iconTypeName) then
                         prop.onClick (fun _ -> dispatch (PickupNewIcon (CustomIcon (iconTypeName, iconType.ParameterCount))))
                 ]
                 Html.button [
@@ -280,7 +260,6 @@ let private customIconSpawnersView (state : State) (dispatch : Message -> unit) 
         ]
     let customIconsSpawners =
         Html.div ( state.CustomIcons
-            |> Map.toList
             |> List.filter (fun (name, _) -> name <> dummyCustomIconName)
             |> List.map
                 (fun (id, icon) ->
