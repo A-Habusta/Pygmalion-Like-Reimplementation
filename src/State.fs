@@ -67,7 +67,7 @@ type Action =
 
 let private createCustomIcon name (parameterCount : int) : CustomIcon =
     { Name = name
-      ActionTree = End
+      ActionTree = defaultEnd
       ParameterCount = parameterCount }
 
 let init () : State =
@@ -117,11 +117,10 @@ let wrapExecutionActionNode (action : ExecutionActionTree) : Action =
     IconAction action
 
 let rec update (action : Action) state =
-    let onTrap prism parameters state =
-        let appendTab =
-            createTabFromCustomIcon state.CustomIcons prism parameters
-            |> appendNewTabToTop
-        state |> appendTab // TODO: Doesn't work, throws Trap
+    let onTrap prism parameters executionState state =
+        let tab = createTabFromCustomIcon state.CustomIcons prism parameters
+        state |> cons tab ^% State.Tabs_ |> executionState ^= State.ExecutionState_
+
     let updateWithInputAction inputAction state =
         let appendReverse list1 list2 = List.append list2 list1
         match inputAction with
@@ -153,15 +152,7 @@ let rec update (action : Action) state =
                     |> wrapExecutionActionNode
                 update newAction state
 
-    match action with
-    | CloseTopTab ->
-        try
-            removeTopTab state
-        with RecursionTrapException (offendingCustomIcon, parameters) ->
-            onTrap offendingCustomIcon parameters state
-    | InputAction inputAction ->
-        updateWithInputAction inputAction state
-    | IconAction iconAction ->
+    let applyIconAction iconAction state =
         let customIcons = state.CustomIcons
         let currentCustomIconPrism =
             let optic = State.CurrentTabPrism_ >?> SingleTabState.TabCustomIconPrism_
@@ -174,5 +165,16 @@ let rec update (action : Action) state =
             state
             |> applyExecutionActionNode customIcons iconAction ^% State.ExecutionState_
             |> appendNewActionToTree iconAction choices ^% actionTreePrism
-        with RecursionTrapException (offendingCustomIcon, parameters) ->
-            onTrap offendingCustomIcon parameters state
+        with RecursionTrapException (offendingCustomIcon, parameters, executionState) ->
+            onTrap offendingCustomIcon parameters executionState state
+
+    match action with
+    | CloseTopTab ->
+        try
+            removeTopTab state
+        with RecursionTrapException (offendingCustomIcon, parameters, exectutionState) ->
+            onTrap offendingCustomIcon parameters exectutionState state
+    | InputAction inputAction ->
+        updateWithInputAction inputAction state
+    | IconAction iconAction ->
+        applyIconAction iconAction state

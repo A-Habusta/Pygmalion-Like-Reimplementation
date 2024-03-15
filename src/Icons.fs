@@ -61,7 +61,6 @@ and MovableObject =
 and MovableObjectTarget =
     | Position of x : int * y : int
     | IconParameter of target : DrawnIconPrism * position : int
-    | ExecutionResult
 
 and CustomIcon =
     { Name : string
@@ -87,10 +86,15 @@ and SimpleExecutionAction =
 and BranchingExecutionAction =
     | EvaluateIf of DrawnIconPrism
 
+and FinalExecutionAction =
+    | SaveResult
+    | Trap
+
 and ExecutionActionTree =
     | Linear of action : SimpleExecutionAction * next : ExecutionActionTree
     | Branch of action : BranchingExecutionAction * falseBranch : ExecutionActionTree * trueBranch : ExecutionActionTree
-    | End
+    | End of action : FinalExecutionAction
+
 
 and CustomIconIndex = int
 and CustomIcons = CustomIcon list
@@ -126,9 +130,8 @@ let baseExecutionState parameters =
 
 let private invalidCustomIconNameCharacters = "\t\n\r_"
 
-let Trap : IconInstructionParameter = None
-
-exception RecursionTrapException of CustomIconPrism * UnderlyingNumberDataType list
+exception private InternalRecursionTrapException of ExecutionState
+exception RecursionTrapException of CustomIconPrism * UnderlyingNumberDataType list * ExecutionState
 
 let transformInstructionParameters transform =
     transform ^% IconInstruction.Params_ // Optic.map
@@ -139,10 +142,10 @@ let replaceParameter position newParameter instruction =
 
 let createEmptyIconInstruction (iconType : IconType) =
     match iconType with
-    | BaseUnaryIcon op -> Unary(op, Trap)
-    | BaseBinaryIcon op -> Binary(op, Trap, Trap)
-    | BaseIfIcon -> If(Trap)
-    | CustomIcon(customIconPrism, paramCount) -> CallCustomIcon(customIconPrism, List.init paramCount (fun _ -> Trap))
+    | BaseUnaryIcon op -> Unary(op, None)
+    | BaseBinaryIcon op -> Binary(op, None, None)
+    | BaseIfIcon -> If(None)
+    | CustomIcon(customIconPrism, paramCount) -> CallCustomIcon(customIconPrism, List.init paramCount (fun _ -> None))
 
 let createEmptyDrawnIcon x y instruction =
     { IconInstruction = instruction
@@ -178,8 +181,6 @@ let private placePickup target state =
         placeIconAt x y iconPrism
     | (IconParameter (targetPrism, position), Number number) ->
         setParameterAtPosition targetPrism position (Some number) state
-    | (ExecutionResult, Number number) ->
-        {state with Result = Some number}
     | (_, _) -> state
 
 let rec private evaluateIconInstruction customIcons iconInstruction =
@@ -188,31 +189,34 @@ let rec private evaluateIconInstruction customIcons iconInstruction =
         evalUnaryOperation op arg
     | Binary(op, arg1, arg2) ->
         evalBinaryOperation op arg1 arg2
-    | If(op) ->
-        Option.defaultWith (raise LocalTrapException) op
+    | If(op) -> op
     | CallCustomIcon(iconPrism: CustomIconPrism, parameters) ->
-        parameters
-        |> List.map (Option.defaultWith (raise LocalTrapException))
-        |> buildExecutionStateForCustomIcon customIcons iconPrism
-        |> Optic.get ExecutionState.Result_
-        |> Option.defaultWith (raise LocalTrapException) // Trap if result wasn't set
+        let allParametersPresent = parameters |> List.tryFind Option.isNone |> Option.isNone
+        if allParametersPresent then
+            buildExecutionStateForCustomIcon customIcons iconPrism (List.map Option.get parameters)
+            |> Optic.get ExecutionState.Result_
+        else
+            None
 
 and private evaluateIconInstance customIcons drawnIcon =
     let iconInstruction = drawnIcon.IconInstruction
     let result = evaluateIconInstruction customIcons iconInstruction
-    {drawnIcon with Result = Some result}
+    {drawnIcon with Result = result}
 
 and private evaluateIcon customIcons iconPrism : ExecutionState -> ExecutionState =
     evaluateIconInstance customIcons ^% (ExecutionState.LocalIcons_ >-> iconPrism)
 
 and private evaluateIf customIcons ifPrism state =
     let newState = evaluateIcon customIcons ifPrism state
-    let result =
+    let resultOpt =
         let resultPrism = ExecutionState.LocalIcons_ >-> ifPrism >?> DrawnIcon.Result_
-        newState ^. resultPrism |> Option.get |> Option.get |> intToBool
-    newState |> cons result ^% ExecutionState.CurrentBranchChoices_
+        newState ^. resultPrism |> Option.flatten
+    match resultOpt with
+    | None -> newState
+    | Some result ->
+        newState |> cons (intToBool result) ^% ExecutionState.CurrentBranchChoices_
 
-and private applyExecutionActionNodeInternal customIcons (actionNode : ExecutionActionTree) =
+and applyExecutionActionNode customIcons (actionNode : ExecutionActionTree) state =
     let applySimpleExecutionAction customIcons action =
         match action with
         | EvaluateIcon iconPrism ->
@@ -235,21 +239,29 @@ and private applyExecutionActionNodeInternal customIcons (actionNode : Execution
         | RemoveIcon remover ->
             remover ^% ExecutionState.LocalIcons_
         | RemoveIconParameter (targetPrism, position) ->
-            setParameterAtPosition targetPrism position Trap
+            setParameterAtPosition targetPrism position None
     let applyBranchingExecutionAction customIcons action =
         match action with
         | EvaluateIf (ifPrism) ->
             evaluateIf customIcons ifPrism
+    let saveResult state =
+        match state.HeldObject with
+        | Number result -> {state with Result = Some result}
+        | _ -> InvalidOperationException("Tried to save invalid object to result") |> raise
 
     match actionNode with
     | Linear (action, _) ->
-        applySimpleExecutionAction customIcons action
+        applySimpleExecutionAction customIcons action state
     | Branch (action, _, _) ->
-        applyBranchingExecutionAction customIcons action
-    | End -> id
+        applyBranchingExecutionAction customIcons action state
+    | End action ->
+        match action with
+        | Trap -> InternalRecursionTrapException state |> raise
+        | SaveResult ->
+            saveResult state
 
 and private applyExecutionActionTree customIcons (actionTree : ExecutionActionTree) state =
-    let stateWithAppliedHeadAction = applyExecutionActionNodeInternal customIcons actionTree state
+    let stateWithAppliedHeadAction = applyExecutionActionNode customIcons actionTree state
     let boundRecursiveCall next =
         applyExecutionActionTree customIcons next stateWithAppliedHeadAction
     match actionTree with
@@ -257,24 +269,20 @@ and private applyExecutionActionTree customIcons (actionTree : ExecutionActionTr
     | Branch (_, falseBranch, trueBranch) ->
         let nextBranch = if stateWithAppliedHeadAction.CurrentBranchChoices.Head then trueBranch else falseBranch
         boundRecursiveCall nextBranch
-    | End -> stateWithAppliedHeadAction
+    | End _ ->
+        state
 
 and buildExecutionStateForCustomIcon customIcons (customIconOptic : CustomIconPrism) parameters =
     let baseExecutionState = baseExecutionState parameters
     let actionTree=
         let optic = customIconOptic >?> CustomIcon.LocalActionTree_
         customIcons ^. optic |> Option.get
+
     try
         applyExecutionActionTree customIcons actionTree baseExecutionState
-    with LocalTrapException ->
-        let outerException = RecursionTrapException(customIconOptic, parameters)
-        raise outerException
+    with InternalRecursionTrapException newState ->
+        RecursionTrapException(customIconOptic, parameters, newState) |> raise
 
-let applyExecutionActionNode customIcons actionNode state=
-    try
-        applyExecutionActionNodeInternal customIcons actionNode state
-    with LocalTrapException ->
-        state
 let appendNewActionToTree newAction choicesList (actionTree : ExecutionActionTree) =
     let rec appendNewActionToTree' newAction choicesList actionTree =
         let boundRecursiveCall = appendNewActionToTree' newAction
@@ -288,12 +296,17 @@ let appendNewActionToTree newAction choicesList (actionTree : ExecutionActionTre
             | true :: restChoices ->
                 Branch(branchingAction, falseBranch, boundRecursiveCall restChoices trueBranch)
             | [] -> failwith "Missing choice"
-        | End -> newAction
+        | End Trap -> newAction
+        | End SaveResult -> InvalidOperationException("Tried to replace action of saving the result") |> raise
 
     appendNewActionToTree' newAction (List.rev choicesList) actionTree
 
+let defaultEnd = End Trap
 let wrapSimpleExecutionAction action =
-    Linear(action, End)
+    Linear(action, defaultEnd)
 
 let wrapBranchingExecutionAction action =
-    Branch(action, End, End)
+    Branch(action, defaultEnd, defaultEnd)
+
+let wrapResultSaveAction =
+    End SaveResult
