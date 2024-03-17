@@ -60,12 +60,13 @@ let stateIsHoldingObject state  =
 
 let private renderIcon
     (state : State)
-    (iconPrism : DrawnIconPrism)
-    (icon : DrawnIcon)
     (dispatch : Action -> unit)
+    (iconIndex : int)
+    (icon : DrawnIcon)
     : ReactElement =
     let dispatchSimple = wrapSimpleAction >> dispatch
     let stateIsHoldingObject = stateIsHoldingObject state
+    let iconPrism = List.pos_ iconIndex
 
     let renderIconIOField =
         let renderParameter (index : int) (parameter : IconInstructionParameter) =
@@ -137,7 +138,7 @@ let private renderIcon
     let renderIconActions =
         let removeHandler e =
             mouseEventPreventPropagation e
-            RemoveIcon id |> dispatchSimple
+            listRemoveIndex iconIndex |> RemoveIcon |> dispatchSimple
         let getResult e =
             mouseEventPreventPropagation e
             iconPrism
@@ -199,7 +200,7 @@ let private renderIcon
 
 let private renderIconInstances (state : State) (dispatch : Action -> unit) : ReactElement list =
     state.ExecutionState.LocalIcons
-    |> List.mapi (fun index icon -> renderIcon state (List.pos_ index) icon dispatch)
+    |> List.mapi (renderIcon state dispatch)
 
 let private defaultIconSpawnersView (dispatch : Action -> unit) : ReactElement =
     let spawnerView (text : string) (iconInstruction : IconInstruction) (dispatch : Action -> unit) : ReactElement =
