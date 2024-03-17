@@ -82,8 +82,11 @@ let init () : State =
           TabParameters = [] }
     let initialTabs = [initialTab]
 
+    let initialCustomIcon = createCustomIcon initialCustomIconName 0
+    let initialCustomIcons = [initialCustomIcon]
+
     { ExecutionState = initialExecutionState
-      CustomIcons = List.empty
+      CustomIcons = initialCustomIcons
       Tabs = initialTabs
       InputState = initialInputState }
 
