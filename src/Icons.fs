@@ -270,7 +270,7 @@ and private applyExecutionActionTree customIcons (actionTree : ExecutionActionTr
         let nextBranch = if stateWithAppliedHeadAction.CurrentBranchChoices.Head then trueBranch else falseBranch
         boundRecursiveCall nextBranch
     | End _ ->
-        state
+        stateWithAppliedHeadAction
 
 and buildExecutionStateForCustomIcon customIcons (customIconOptic : CustomIconPrism) parameters =
     let baseExecutionState = baseExecutionState parameters
