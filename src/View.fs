@@ -202,41 +202,42 @@ let private renderIconInstances (state : State) (dispatch : Action -> unit) : Re
     state.ExecutionState.LocalIcons
     |> List.mapi (renderIcon state dispatch)
 
+let private spawnerView (text : string) (iconInstruction : IconInstruction) (dispatch : Action -> unit) : ReactElement =
+    Html.button [
+        prop.className "spawner-button"
+        prop.text text
+        prop.onClick (fun _ -> PickupNewIcon iconInstruction |> wrapSimpleAction |> dispatch)
+    ]
+let private spawnerListTemplate dispatch (sectionName : string) iconSource =
+    let spawnerList =
+        List.map
+            (fun (text, instruction) ->
+                Html.li [ spawnerView text instruction dispatch ])
+    Html.div [
+        Html.h4 sectionName
+        Html.ul [
+            prop.children (spawnerList iconSource)
+        ]
+    ]
 let private defaultIconSpawnersView (dispatch : Action -> unit) : ReactElement =
-    let spawnerView (text : string) (iconInstruction : IconInstruction) (dispatch : Action -> unit) : ReactElement =
-        Html.button [
-            prop.className "spawner-button"
-            prop.text text
-            prop.onClick (fun _ -> PickupNewIcon iconInstruction |> wrapSimpleAction |> dispatch)
-        ]
-    let spawnerListTemplate (sectionName : string) iconSource =
-        let spawnerList =
-            List.map
-                (fun (text, instruction) ->
-                    Html.li [ spawnerView text instruction dispatch ])
-        Html.div [
-            Html.h4 sectionName
-            Html.ul [
-                prop.children (spawnerList iconSource)
-            ]
-        ]
+    let boundSpawnerListTemplate = spawnerListTemplate dispatch
     let defaultIconSpawners =
-        let unaryOperatorsSpawnerList =
+        let unaryOperatorsSpawnerBaseList =
             List.map (fun (op : UnaryOperation) ->
                 (op.Name, Unary (op, None))) defaultUnaryOperators
-        let binaryOperatorsSpawnerList =
+        let binaryOperatorsSpawnerBaseList =
             List.map (fun (op : BinaryOperation) ->
                 (op.Name, Binary (op, None, None))) defaultBinaryOperators
         Html.div [
             prop.id "default-icon-spawners"
             prop.children [
-                spawnerListTemplate
+                boundSpawnerListTemplate
                     "Unary"
-                    unaryOperatorsSpawnerList
-                spawnerListTemplate
+                    unaryOperatorsSpawnerBaseList
+                boundSpawnerListTemplate
                     "Binary"
-                    binaryOperatorsSpawnerList
-                spawnerListTemplate
+                    binaryOperatorsSpawnerBaseList
+                boundSpawnerListTemplate
                     "Special"
                     [ ("If", If None)]
             ]
@@ -244,32 +245,21 @@ let private defaultIconSpawnersView (dispatch : Action -> unit) : ReactElement =
     defaultIconSpawners
 
 let private customIconSpawnersView (state : State) (dispatch : Action -> unit) : ReactElement =
-    let customIconSpawnerView (customIcon : CustomIcon) (iconPrism : CustomIconPrism) =
-        let iconName = customIcon.Name
-        Html.ul [
-            prop.id "custom-icon-spawners"
-            prop.children [
-                Html.button [
-                    prop.text iconName
-                    if not (customIconNameContainsInvalidCharacter iconName) then
-                        prop.onClick (fun _ ->
-                            (iconPrism, List.init customIcon.ParameterCount (fun _ -> None))
-                            |> CallCustomIcon
-                            |> PickupNewIcon
-                            |> wrapSimpleAction
-                            |> dispatch )
-                ]
-            ]
+    let customIconSpawnerBaseList =
+        state.CustomIcons
+        |> List.mapi (fun index icon -> (index, icon)) // Done like this to preserve the index
+        |> List.filter (fun (_, icon) -> icon.Name <> initialCustomIconName)
+        |> List.map (fun (index, icon) ->
+            let iconParameters = List.init icon.ParameterCount (fun _ -> None)
+            let iconPrism = List.pos_ index
+            let finalIconInstruction = CallCustomIcon (iconPrism, iconParameters)
+            (icon.Name, finalIconInstruction) )
+    Html.div [
+        prop.id "custom-icon-spawners"
+        prop.children [
+            spawnerListTemplate dispatch "Custom" customIconSpawnerBaseList
         ]
-    let customIconsSpawners =
-        Html.div (
-            state.CustomIcons
-            |> List.mapi (fun index icon -> (index, icon)) // Done like this to preserve the index
-            |> List.filter (fun (_, icon) -> icon.Name <> initialCustomIconName)
-            |> List.map
-                (fun (index, icon) ->
-                    customIconSpawnerView icon (List.pos_ index) ))
-    customIconsSpawners
+    ]
 let private constantSpawnerView (state : State) (dispatch : Action -> unit) : ReactElement =
     let dispatchInput = InputAction >> dispatch
     Html.div [
@@ -360,6 +350,7 @@ let private customIconCreatorView (state : State) (dispatch : Action -> unit) : 
         let isInputValid = nameValid && paramCountValid
 
         Html.button [
+            prop.className "custom-icon-creator-create-button"
             prop.disabled (not isInputValid)
             prop.text "New Icon"
             prop.onClick (fun _ ->

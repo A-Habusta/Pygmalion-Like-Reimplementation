@@ -71,11 +71,6 @@ body {
 }
 
 
-.spawner-button {
-    width: 30px;
-}
-
-
 .tab {
     padding: 5px;
     border: var(--default-border);
@@ -108,7 +103,6 @@ body {
     align-items: center;
 }
 
-
 .constant-spawner-text {
     width: 95%;
 }
@@ -116,21 +110,16 @@ body {
 #constant-spawner {
     grid-area: constant-spawner;
     border: var(--default-border);
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+
+    padding: 5px;
 }
 
-
-#custom-icon-spawners {
-    grid-area: custom-icon-picker;
-    border: var(--default-border);
-}
-
-
-.custom-icon-creator-name-input {
-    width: 90%;
-}
-
-.custom-icon-creator-param-count-input {
-    width: 90%;
+.spawner-button {
+    width: 70px;
 }
 
 #custom-icon-creator {
@@ -138,7 +127,10 @@ body {
     border: var(--default-border);
 
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
+    justify-content: center;
+
+    padding: 5px;
 }
 
 
@@ -151,15 +143,21 @@ body {
 #default-icon-spawners {
     grid-area: default-icon-picker;
     border: var(--default-border);
+
+    padding: 5px;
 }
 
+#custom-icon-spawners {
+    grid-area: custom-icon-spawners;
+    border: var(--default-border);
+    overflow: scroll;
+
+    padding: 5px;
+}
 
 #icon-canvas {
     grid-area: canvas;
     border: var(--default-border);
-
-    height: 100%;
-    width: 100%;
 }
 
 #result-field {
@@ -180,8 +178,8 @@ body {
 #root-container {
     display: grid;
     grid-template-areas:
-        "default-icon-picker result-field tab-parameters custom-icon-picker"
-        "default-icon-picker canvas canvas custom-icon-picker"
+        "default-icon-picker result-field tab-parameters custom-icon-spawners"
+        "default-icon-picker canvas canvas custom-icon-spawners"
         "constant-spawner canvas canvas custom-icon-creator"
         "constant-spawner held-object tabs custom-icon-creator";
     grid-template-columns: 10vw 10vw 70vw 10vw;
