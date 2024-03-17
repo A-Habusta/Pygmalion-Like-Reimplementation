@@ -284,22 +284,21 @@ and buildExecutionStateForCustomIcon customIcons (customIconOptic : CustomIconPr
         RecursionTrapException(customIconOptic, parameters, newState) |> raise
 
 let appendNewActionToTree newAction choicesList (actionTree : ExecutionActionTree) =
-    let rec appendNewActionToTree' newAction choicesList actionTree =
-        let boundRecursiveCall = appendNewActionToTree' newAction
+    let rec appendNewActionToTree' choicesList actionTree =
         match actionTree with
         | Linear (simpleAction, next) ->
-            Linear(simpleAction, boundRecursiveCall choicesList next)
+            Linear(simpleAction, appendNewActionToTree' choicesList next)
         | Branch (branchingAction, falseBranch, trueBranch) ->
             match choicesList with
             | false :: restChoices ->
-                Branch(branchingAction, boundRecursiveCall restChoices falseBranch, trueBranch)
+                Branch(branchingAction, appendNewActionToTree' restChoices falseBranch, trueBranch)
             | true :: restChoices ->
-                Branch(branchingAction, falseBranch, boundRecursiveCall restChoices trueBranch)
+                Branch(branchingAction, falseBranch, appendNewActionToTree' restChoices trueBranch)
             | [] -> failwith "Missing choice"
         | End Trap -> newAction
         | End SaveResult -> InvalidOperationException("Tried to replace action of saving the result") |> raise
 
-    appendNewActionToTree' newAction (List.rev choicesList) actionTree
+    appendNewActionToTree' (List.rev choicesList) actionTree
 
 let defaultEnd = End Trap
 let wrapSimpleExecutionAction action =
