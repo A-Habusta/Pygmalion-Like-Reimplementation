@@ -62,6 +62,7 @@ type InputAction =
 type Action =
     | InputAction of InputAction
     | IconAction of ExecutionActionTree
+    | CreateNewCustomIcon of string * int
     | CloseTopTab
 
 let private createCustomIcon name (parameterCount : int) : CustomIcon =
@@ -111,9 +112,6 @@ let createTabFromCustomIcon customIcons customIconPrism parameters =
     let customIcon = customIcons ^. customIconPrism |> Option.get
     let name = customIcon.Name
     createTab name customIconPrism parameters
-
-let isCustomIconNameValid name =
-    isText name && not (customIconNameContainsInvalidCharacter name)
 
 let wrapExecutionActionNode (action : ExecutionActionTree) : Action =
     IconAction action
@@ -174,6 +172,10 @@ let rec update (action : Action) state =
             onTrap offendingCustomIcon parameters executionState state
 
     match action with
+    | CreateNewCustomIcon (name, parameterCount) ->
+        let customIcon = createCustomIcon name parameterCount
+        // We have to use append instead of cons to preserve the indices
+        state |> listAppend customIcon ^% State.CustomIcons_
     | CloseTopTab ->
         try
             removeTopTab state
