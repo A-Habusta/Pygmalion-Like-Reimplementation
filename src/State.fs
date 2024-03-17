@@ -63,7 +63,6 @@ type Action =
     | InputAction of InputAction
     | IconAction of ExecutionActionTree
     | CreateNewCustomIcon of string * int
-    | CloseTopTab
 
 let private createCustomIcon name (parameterCount : int) : CustomIcon =
     { Name = name
@@ -117,18 +116,17 @@ let executionContextEqual state (customIconPrism1, parameters1) (customIconPrism
 
 let switchToTopTab (state : State) : State =
     let tab = state ^. State.CurrentTabPrism_ |> Option.get
-    let parameters = tab.TabParameters
     try
-        buildExecutionStateForCustomIcon state.CustomIcons tab.TabCustomIconPrism parameters
-        |> ignore // Ignore because the result will always be returned by hitting a Trap
-        state
-    with RecursionTrapException (offendingIconPrism, parameters, executionState) ->
+        let executionState =
+            buildExecutionStateForCustomIcon state.CustomIcons tab.TabCustomIconPrism tab.TabParameters
+        state |> executionState ^= State.ExecutionState_
+    with RecursionTrapException (offendingIconPrism, parameters, trapExecutionState) ->
         let trapInCurrentTab =
             executionContextEqual state (offendingIconPrism, parameters) (tab.TabCustomIconPrism, tab.TabParameters)
         if trapInCurrentTab then
-            state |> executionState ^= State.ExecutionState_
+            state |> trapExecutionState ^= State.ExecutionState_
         else
-            onTrap offendingIconPrism parameters executionState state
+            onTrap offendingIconPrism parameters trapExecutionState state
 
 let removeTopTab (state : State) : State =
     state |> List.tail ^% State.Tabs_ |> switchToTopTab
@@ -193,9 +191,7 @@ let rec update (action : Action) state =
             |> removeTopTabIfResultIsSome
         with RecursionTrapException (offendingCustomIcon, parameters, executionState) ->
             onTrap offendingCustomIcon parameters executionState stateWithAction
-
-    match action with
-    | CreateNewCustomIcon (name, parameterCount) ->
+    let createNewCustomIcon name parameterCount state =
         let nameAlreadyExists =
             state.CustomIcons |> List.exists (fun icon -> icon.Name = name)
         if nameAlreadyExists then
@@ -204,11 +200,10 @@ let rec update (action : Action) state =
             let customIcon = createCustomIcon name parameterCount
             // We have to use append instead of cons to preserve the indices
             state |> listAppend customIcon ^% State.CustomIcons_
-    | CloseTopTab ->
-        try
-            removeTopTab state
-        with RecursionTrapException (offendingCustomIcon, parameters, executionState) ->
-            onTrap offendingCustomIcon parameters executionState state
+
+    match action with
+    | CreateNewCustomIcon (name, parameterCount) ->
+        createNewCustomIcon name parameterCount state
     | InputAction inputAction ->
         updateWithInputAction inputAction state
     | IconAction iconAction ->
