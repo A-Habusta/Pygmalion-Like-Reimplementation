@@ -316,6 +316,7 @@ let private tabView (state : State) (dispatch : Action -> unit) : ReactElement =
             prop.id "tabs"
             prop.children (
                 state.Tabs
+                |> List.rev
                 |> List.map singleTabView
             )
         ]
