@@ -152,6 +152,9 @@ let private setParameterAtPosition targetPrism position newParameter =
     (replaceParameter position newParameter) ^% fullTargetOptic
 
 let private placePickup target state =
+    let dropPickup =
+        NoObject ^= ExecutionState.HeldObject_
+
     let createNewIconAt x y instruction =
         let newDrawnIcon = createDrawnIcon x y instruction
         state |> cons newDrawnIcon ^% ExecutionState.LocalIcons_
@@ -165,11 +168,11 @@ let private placePickup target state =
     let heldObject = state ^. ExecutionState.HeldObject_
     match (target, heldObject) with
     | (Position (x, y), NewIcon instruction) ->
-        createNewIconAt x y instruction
+        createNewIconAt x y instruction |> dropPickup
     | (Position (x, y), ExistingIcon iconPrism) ->
-        placeIconAt x y iconPrism
+        placeIconAt x y iconPrism |> dropPickup
     | (IconParameter (targetPrism, position), Number number) ->
-        setParameterAtPosition targetPrism position (Some number) state
+        setParameterAtPosition targetPrism position (Some number) state |> dropPickup
     | (_, _) -> state
 
 let rec private evaluateIconInstruction customIcons iconInstruction =
