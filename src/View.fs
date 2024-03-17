@@ -246,7 +246,7 @@ let private defaultIconSpawnersView (dispatch : Action -> unit) : ReactElement =
 let private customIconSpawnersView (state : State) (dispatch : Action -> unit) : ReactElement =
     let customIconSpawnerView (customIcon : CustomIcon) (iconPrism : CustomIconPrism) =
         let iconName = customIcon.Name
-        Html.div [
+        Html.ul [
             prop.id "custom-icon-spawners"
             prop.children [
                 Html.button [
@@ -264,9 +264,10 @@ let private customIconSpawnersView (state : State) (dispatch : Action -> unit) :
     let customIconsSpawners =
         Html.div (
             state.CustomIcons
-            |> List.filter (fun icon -> icon.Name <> initialCustomIconName)
-            |> List.mapi
-                (fun index icon ->
+            |> List.mapi (fun index icon -> (index, icon)) // Done like this to preserve the index
+            |> List.filter (fun (_, icon) -> icon.Name <> initialCustomIconName)
+            |> List.map
+                (fun (index, icon) ->
                     customIconSpawnerView icon (List.pos_ index) ))
     customIconsSpawners
 let private constantSpawnerView (state : State) (dispatch : Action -> unit) : ReactElement =
@@ -291,10 +292,16 @@ let private constantSpawnerView (state : State) (dispatch : Action -> unit) : Re
     ]
 
 let private heldObjectView (state : State) =
+    let printIconInstruction instruction =
+        match instruction with
+        | Unary (op, _) -> sprintf "Unary %s" op.Name
+        | Binary (op, _, _) -> sprintf "Binary %s" op.Name
+        | If _ -> "If"
+        | CallCustomIcon _ -> "Call Custom Icon"
     let heldObjectToString =
         let object = state.ExecutionState.HeldObject
         match object with
-        | NewIcon iconType -> sprintf "%A" iconType
+        | NewIcon iconInstruction -> printIconInstruction iconInstruction
         | Number number -> sprintf "%d" number
         | ExistingIcon _ -> "Moving existing icon"
         | _ -> String.Empty
@@ -395,6 +402,30 @@ let tabParametersView (state : State) (dispatch : Action -> unit) : ReactElement
         ]
     parameters
 
+let resultFieldView (state : State) (dispatch : Action -> unit) : ReactElement =
+    let saveResult e =
+        mouseEventPreventPropagation e
+        SaveResult |> End |> IconAction |> dispatch
+    let resultFieldChildren =
+        prop.children [
+            Html.text "Result: "
+            Html.div [
+                prop.id "result-field-box"
+                prop.onClick (
+                    match state.ExecutionState.HeldObject with
+                    | Number _ -> saveResult
+                    | _ -> mouseEventPreventPropagation )
+            ]
+        ]
+
+    let resultField =
+        Html.div [
+            prop.id "result-field"
+            if state.Tabs.Length > 1 then resultFieldChildren
+        ]
+
+    resultField
+
 let renderIconCanvas (state : State) (dispatch : Action -> unit) : ReactElement =
     let canvasOnClick (e : Browser.Types.MouseEvent) =
         mouseEventPreventPropagation e
@@ -424,6 +455,7 @@ let render (state : State) (dispatch : Action -> unit) : ReactElement =
             renderIconCanvas state dispatch
             customIconCreatorView state dispatch
             constantSpawnerView state dispatch
+            resultFieldView state dispatch
             tabView state dispatch
         ]
 

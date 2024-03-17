@@ -31,7 +31,7 @@ body {
 }
 
 .icon-remove-button,
-.icon-get-reference-button,
+.icon-get-result-button,
 .icon-eval-button,
 .icon-move-button {
     border: var(--default-border);
@@ -77,7 +77,8 @@ body {
 
 
 .tab {
-    margin-right: 5px;
+    padding: 5px;
+    border: var(--default-border);
 }
 
 #tabs {
@@ -86,6 +87,7 @@ body {
 
     display: flex;
     flex-direction: row;
+    align-items: center;
 }
 
 
@@ -160,11 +162,25 @@ body {
     width: 100%;
 }
 
+#result-field {
+    grid-area: result-field;
+    border: var(--default-border);
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#result-field-box {
+    width: var(--parameter-box-size);
+    height: var(--parameter-box-size);
+    border: var(--default-border);
+}
 
 #root-container {
     display: grid;
     grid-template-areas:
-        "default-icon-picker tab-parameters tab-parameters custom-icon-picker"
+        "default-icon-picker result-field tab-parameters custom-icon-picker"
         "default-icon-picker canvas canvas custom-icon-picker"
         "constant-spawner canvas canvas custom-icon-creator"
         "constant-spawner held-object tabs custom-icon-creator";
