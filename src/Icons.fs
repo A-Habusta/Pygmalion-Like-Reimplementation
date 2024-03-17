@@ -74,6 +74,7 @@ and SimpleExecutionAction =
     | PickupIcon of DrawnIconPrism
     | PickupNumber of UnderlyingNumberDataType
     | PickupExecutionStateParameter of parameterIndex : int
+    | PickupIconResult of DrawnIconPrism
     | PlacePickup of MovableObjectTarget
     | CancelPickup
     | RemoveIcon of remover : (DrawnIcons -> DrawnIcons)
@@ -212,7 +213,7 @@ and applyExecutionActionNode customIcons (actionNode : ExecutionActionTree) stat
             evaluateIcon customIcons iconPrism
         | PickupNewIcon instruction ->
             (NewIcon instruction) ^= ExecutionState.HeldObject_
-        | PickupIcon iconPrism->
+        | PickupIcon iconPrism ->
             (ExistingIcon iconPrism) ^= ExecutionState.HeldObject_
         | PickupNumber parameter ->
             (Number parameter) ^= ExecutionState.HeldObject_
@@ -221,6 +222,11 @@ and applyExecutionActionNode customIcons (actionNode : ExecutionActionTree) stat
                 let parameterOptic = ExecutionState.Parameters_ >-> List.pos_ parameterIndex
                 let parameter = Option.get (state ^. parameterOptic) // Crashes on invalid index
                 state |> (Number parameter) ^= ExecutionState.HeldObject_
+        | PickupIconResult iconPrism ->
+            fun state ->
+                let iconOptic = ExecutionState.LocalIcons_ >-> iconPrism >?> DrawnIcon.Result_
+                let result = state ^. iconOptic |> Option.flatten |> Option.defaultValue 0
+                state |> (Number result) ^= ExecutionState.HeldObject_
         | CancelPickup ->
             NoObject ^= ExecutionState.HeldObject_
         | PlacePickup target ->
@@ -301,3 +307,6 @@ let wrapBranchingExecutionAction action =
 
 let resultSaveAction =
     End SaveResult
+
+let isCustomIconNameValid name =
+    isText name && not (customIconNameContainsInvalidCharacter name)
