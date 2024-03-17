@@ -174,7 +174,6 @@ let rec update (action : Action) state =
             if state.ExecutionState.Result |> Option.isSome then
                 removeTopTab state |> removeTopTabIfResultIsSome
             else state
-        let customIcons = state.CustomIcons
         let currentCustomIconPrism =
             let optic = State.CurrentTabPrism_ >?> SingleTabState.TabCustomIconPrism_
             state ^. optic |> Option.get // We expect only valid prisms to be used
@@ -187,7 +186,7 @@ let rec update (action : Action) state =
 
         try
             stateWithAction
-            |> applyExecutionActionNode customIcons iconAction ^% State.ExecutionState_
+            |> applyExecutionActionNode stateWithAction.CustomIcons iconAction ^% State.ExecutionState_
             |> removeTopTabIfResultIsSome
         with RecursionTrapException (offendingCustomIcon, parameters, executionState) ->
             onTrap offendingCustomIcon parameters executionState stateWithAction
