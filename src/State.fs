@@ -179,8 +179,8 @@ let rec update (action : Action) state =
     | CloseTopTab ->
         try
             removeTopTab state
-        with RecursionTrapException (offendingCustomIcon, parameters, exectutionState) ->
-            onTrap offendingCustomIcon parameters exectutionState state
+        with RecursionTrapException (offendingCustomIcon, parameters, executionState) ->
+            onTrap offendingCustomIcon parameters executionState state
     | InputAction inputAction ->
         updateWithInputAction inputAction state
     | IconAction iconAction ->
