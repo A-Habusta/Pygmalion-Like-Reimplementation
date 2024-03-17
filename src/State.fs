@@ -94,8 +94,12 @@ let init () : State =
 let switchToTopTab (state : State) : State =
     let tab = state ^. State.CurrentTabPrism_ |> Option.get
     let parameters = tab.TabParameters
-    let executionState = buildExecutionStateForCustomIcon state.CustomIcons tab.TabCustomIconPrism parameters
-    state |> executionState ^= State.ExecutionState_
+    try
+        buildExecutionStateForCustomIcon state.CustomIcons tab.TabCustomIconPrism parameters
+        |> ignore // Ignore because the result will be returned by hitting a Trap
+        state
+    with RecursionTrapException (_, _, executionState) ->
+        state |> executionState ^= State.ExecutionState_
 
 let removeTopTab (state : State) : State =
     state |> List.tail ^% State.Tabs_ |> switchToTopTab
