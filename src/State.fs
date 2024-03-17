@@ -91,22 +91,6 @@ let init () : State =
       Tabs = initialTabs
       InputState = initialInputState }
 
-let switchToTopTab (state : State) : State =
-    let tab = state ^. State.CurrentTabPrism_ |> Option.get
-    let parameters = tab.TabParameters
-    try
-        buildExecutionStateForCustomIcon state.CustomIcons tab.TabCustomIconPrism parameters
-        |> ignore // Ignore because the result will be returned by hitting a Trap
-        state
-    with RecursionTrapException (_, _, executionState) ->
-        state |> executionState ^= State.ExecutionState_
-
-let removeTopTab (state : State) : State =
-    state |> List.tail ^% State.Tabs_ |> switchToTopTab
-
-let appendNewTabToTop tab (state : State) : State =
-    state |> cons tab ^% State.Tabs_ |> switchToTopTab
-
 let createTab tabName tabCustomIconPrism parameters  =
     { TabName = tabName
       TabCustomIconPrism = tabCustomIconPrism
@@ -117,14 +101,45 @@ let createTabFromCustomIcon customIcons customIconPrism parameters =
     let name = customIcon.Name
     createTab name customIconPrism parameters
 
+let onTrap prism parameters executionState state =
+    let tab = createTabFromCustomIcon state.CustomIcons prism parameters
+    state |> cons tab ^% State.Tabs_ |> executionState ^= State.ExecutionState_
+
+let executionContextEqual state (customIconPrism1, parameters1) (customIconPrism2, parameters2) =
+        let customIconFromPrism prism = state.CustomIcons ^. prism |> Option.get
+        let offendingCustomIcon = customIconFromPrism customIconPrism1
+        let currentCustomIcon = customIconFromPrism customIconPrism2
+
+        let customIconNamesEqual = offendingCustomIcon.Name = currentCustomIcon.Name
+        let parametersEqual = parameters1 = parameters2
+
+        customIconNamesEqual && parametersEqual
+
+let switchToTopTab (state : State) : State =
+    let tab = state ^. State.CurrentTabPrism_ |> Option.get
+    let parameters = tab.TabParameters
+    try
+        buildExecutionStateForCustomIcon state.CustomIcons tab.TabCustomIconPrism parameters
+        |> ignore // Ignore because the result will always be returned by hitting a Trap
+        state
+    with RecursionTrapException (offendingIconPrism, parameters, executionState) ->
+        let trapInCurrentTab =
+            executionContextEqual state (offendingIconPrism, parameters) (tab.TabCustomIconPrism, tab.TabParameters)
+        if trapInCurrentTab then
+            state |> executionState ^= State.ExecutionState_
+        else
+            onTrap offendingIconPrism parameters executionState state
+
+let removeTopTab (state : State) : State =
+    state |> List.tail ^% State.Tabs_ |> switchToTopTab
+
+let appendNewTabToTop tab (state : State) : State =
+    state |> cons tab ^% State.Tabs_ |> switchToTopTab
+
 let wrapExecutionActionNode (action : ExecutionActionTree) : Action =
     IconAction action
 
 let rec update (action : Action) state =
-    let onTrap prism parameters executionState state =
-        let tab = createTabFromCustomIcon state.CustomIcons prism parameters
-        state |> cons tab ^% State.Tabs_ |> executionState ^= State.ExecutionState_
-
     let updateWithInputAction inputAction state =
         let appendReverse list1 list2 = List.append list2 list1
         match inputAction with
@@ -157,29 +172,38 @@ let rec update (action : Action) state =
                 update newAction state
 
     let applyIconAction iconAction state =
-        let removeTopTabIfResultIsSome state =
-            if state.ExecutionState.Result |> Option.isSome then removeTopTab state else state
+        let rec removeTopTabIfResultIsSome state =
+            if state.ExecutionState.Result |> Option.isSome then
+                removeTopTab state |> removeTopTabIfResultIsSome
+            else state
         let customIcons = state.CustomIcons
         let currentCustomIconPrism =
             let optic = State.CurrentTabPrism_ >?> SingleTabState.TabCustomIconPrism_
             state ^. optic |> Option.get // We expect only valid prisms to be used
 
-        let actionTreePrism = State.CustomIcons_ >-> currentCustomIconPrism >?> CustomIcon.LocalActionTree_
         let choices = state.ExecutionState.CurrentBranchChoices
+        let actionTreePrism =
+            State.CustomIcons_ >-> currentCustomIconPrism >?> CustomIcon.LocalActionTree_
+        let stateWithAction =
+            state |> appendNewActionToTree iconAction choices ^% actionTreePrism
 
         try
-            state
+            stateWithAction
             |> applyExecutionActionNode customIcons iconAction ^% State.ExecutionState_
-            |> appendNewActionToTree iconAction choices ^% actionTreePrism
             |> removeTopTabIfResultIsSome
         with RecursionTrapException (offendingCustomIcon, parameters, executionState) ->
-            onTrap offendingCustomIcon parameters executionState state
+            onTrap offendingCustomIcon parameters executionState stateWithAction
 
     match action with
     | CreateNewCustomIcon (name, parameterCount) ->
-        let customIcon = createCustomIcon name parameterCount
-        // We have to use append instead of cons to preserve the indices
-        state |> listAppend customIcon ^% State.CustomIcons_
+        let nameAlreadyExists =
+            state.CustomIcons |> List.exists (fun icon -> icon.Name = name)
+        if nameAlreadyExists then
+            state
+        else
+            let customIcon = createCustomIcon name parameterCount
+            // We have to use append instead of cons to preserve the indices
+            state |> listAppend customIcon ^% State.CustomIcons_
     | CloseTopTab ->
         try
             removeTopTab state
