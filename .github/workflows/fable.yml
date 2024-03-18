@@ -26,8 +26,9 @@ jobs:
       run: |
         dotnet tool install -g fable
         dotnet restore
+        dotnet tool restore
         npm update
-        
+
     - name: Build Project
       run: |
         npm run build
@@ -39,6 +40,6 @@ jobs:
       uses: actions/upload-pages-artifact@v3.0.1
       with:
         path: ./dist
-        
-    - name: Deploy Artifact To Pages 
+
+    - name: Deploy Artifact To Pages
       uses: actions/deploy-pages@v4.0.5
