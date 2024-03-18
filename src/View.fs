@@ -97,26 +97,30 @@ let private renderIcon
                 ]
             parameterElement
 
+        let getIconName =
+            function
+            | Unary (op, _) -> op.Name
+            | Binary (op, _, _) -> op.Name
+            | If _ -> "If"
+            | CallCustomIcon (prism, _) ->
+                state ^. (State.CustomIcons_ >-> prism >?> CustomIcon.Name_)
+                |> Option.defaultValue "Invalid Icon Call"
+        let iconDecoratorText (text : string) =
+            Html.div [
+                prop.text text
+                prop.className "icon-decorator"
+            ]
         let decorateIcon (icon : DrawnIcon) (renderedParameters : ReactElement list) =
-            let iconDecoratorText (text : string) =
-                Html.div [
-                    prop.text text
-                    prop.className "icon-decorator"
-                ]
-
             match icon.IconInstruction with
             | Unary (op, _) ->
                 [ iconDecoratorText op.Name ; renderedParameters[0] ]
             | Binary (op, _, _) ->
                 [ renderedParameters[0]; iconDecoratorText op.Name; renderedParameters[1] ]
-            | If (_) -> [
-                    iconDecoratorText "If"
-                    renderedParameters[0]
-                ]
-            | CallCustomIcon (prism, _) ->
-                let name =
-                    state ^. (State.CustomIcons_ >-> prism >?> CustomIcon.Name_)
-                    |> Option.defaultValue "Invalid Icon Call"
+            | If (_) ->
+                    [  iconDecoratorText "If"
+                       renderedParameters[0] ]
+            | CallCustomIcon _ ->
+                let name = getIconName icon.IconInstruction
                 iconDecoratorText name :: renderedParameters
 
         let IOField =
@@ -124,7 +128,10 @@ let private renderIcon
             | Some result ->
                 Html.div [
                     prop.className "icon-result"
-                    prop.text (sprintf "%d" result)
+                    prop.children [
+                        iconDecoratorText (sprintf "(%s)" (getIconName icon.IconInstruction))
+                        iconDecoratorText (sprintf "%d" result)
+                    ]
                 ]
             | _ ->
                 Html.div [

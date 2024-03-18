@@ -67,6 +67,8 @@ body {
 }
 
 .icon-result {
+    display: flex;
+    align-content: center;
     margin: 5px;
 }
 
@@ -119,7 +121,7 @@ body {
 }
 
 .spawner-button {
-    width: 70px;
+    width: 75%;
 }
 
 #custom-icon-creator {
