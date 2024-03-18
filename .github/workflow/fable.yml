@@ -1,0 +1,43 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build_and_deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.x'
+
+    - name: Install Node.js
+      uses: actions/setup-node@v4
+
+    - name: Install Dependencies
+      run: |
+        dotnet tool install -g fable
+        dotnet restore
+        npm update
+        
+    - name: Build Project
+      run: |
+        npm run build
+
+    - name: Configure Pages
+      uses: actions/configure-pages@v4
+
+    - name: Upload Artifact
+      uses: actions/upload-pages-artifact@v3.0.1
+      with:
+        path: ./dist
+        
+    - name: Deploy Artifact To Pages 
+      uses: actions/deploy-pages@v4.0.5
