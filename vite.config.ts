@@ -10,5 +10,9 @@ export default defineConfig({
                 "**/*.fs" // Don't watch F# files
             ]
         }
+    },
+
+    build: {
+        assetsDir: "./"
     }
 })
