@@ -3,6 +3,8 @@ module PygmalionReimplementation.View
 open System
 open Feliz
 
+open Fable.Core.JsInterop
+
 open Aether
 open Aether.Operators
 
@@ -164,21 +166,25 @@ let private renderIcon
 
         let iconIsEvaluated = icon.Result.IsSome
 
-        let createButton (name : string) action (className : string) =
+        let createButton action (className : string ) (iconName : string)=
             Html.button [
-                prop.text name
                 prop.onClick action
                 prop.disabled stateIsHoldingObject
                 prop.className className
+                prop.children [
+                    Html.i [
+                        prop.className ("fa " + iconName)
+                    ]
+                ]
             ]
         let removeButton =
-            createButton "Remove" removeHandler "icon-remove-button"
+            createButton removeHandler "icon-remove-button" "fa-trash"
         let getResultButton =
-            createButton "Get Result" getResult "icon-get-result-button"
+            createButton getResult "icon-get-result-button" "fa-hand-grab-o"
         let evalButton =
-            createButton "Eval" evalHandler "icon-eval-button"
+            createButton evalHandler "icon-eval-button" "fa-play"
         let moveButton =
-            createButton "Move" moveHandler "icon-move-button"
+            createButton moveHandler "icon-move-button" "fa-arrows"
         let buttons =
             Html.div [
                 prop.className "icon-button-container"
@@ -428,7 +434,9 @@ let resultFieldView (state : State) (dispatch : Action -> unit) : ReactElement =
 let renderIconCanvas (state : State) (dispatch : Action -> unit) : ReactElement =
     let canvasOnClick (e : Browser.Types.MouseEvent) =
         mouseEventPreventPropagation e
-        (int e.clientX, int e.clientY)
+        let target = e.target :?> Browser.Types.Element
+        let canvasRect = target.getBoundingClientRect()
+        (int (e.clientX - canvasRect.left), int (e.clientY - canvasRect.top))
         |> Position
         |> PlacePickup
         |> wrapSimpleAction

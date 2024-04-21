@@ -1,5 +1,6 @@
+/* Icon import */
 :root {
-    --parameter-box-size: 30px;
+    --parameter-box-size: 40px;
     --default-border: 1px solid black;
     --bold-weight: 700;
 }
@@ -13,6 +14,8 @@ body {
     -webkit-user-select: none; /* Safari */
     -ms-user-select: none; /* IE 10 and IE 11 */
     user-select: none; /* Standard syntax */
+
+    font-size: 16pt;
 }
 
 
@@ -28,6 +31,8 @@ body {
 
 .icon-button-container {
     margin-right: 2px;
+    display: flex;
+    flex-wrap: nowrap;
 }
 
 .icon-remove-button,
@@ -35,7 +40,6 @@ body {
 .icon-eval-button,
 .icon-move-button {
     border: var(--default-border);
-    height: 30px;
 }
 
 .icon-decorator {
@@ -72,7 +76,6 @@ body {
     margin: 5px;
 }
 
-
 .tab {
     padding: 5px;
     border: var(--default-border);
@@ -85,6 +88,10 @@ body {
     display: flex;
     flex-direction: row;
     align-items: center;
+
+    padding: 5px;
+
+    overflow-x: scroll;
 }
 
 
@@ -103,10 +110,6 @@ body {
     flex-direction: row;
     justify-content: center;
     align-items: center;
-}
-
-.constant-spawner-text {
-    width: 95%;
 }
 
 #constant-spawner {
@@ -145,6 +148,8 @@ body {
 #default-icon-spawners {
     grid-area: default-icon-picker;
     border: var(--default-border);
+    overflow-y: scroll;
+    overflow-x: hidden;
 
     padding: 5px;
 }
@@ -152,7 +157,8 @@ body {
 #custom-icon-spawners {
     grid-area: custom-icon-spawners;
     border: var(--default-border);
-    overflow: scroll;
+    overflow-y: scroll;
+    overflow-x: hidden;
 
     padding: 5px;
 }
@@ -160,6 +166,10 @@ body {
 #icon-canvas {
     grid-area: canvas;
     border: var(--default-border);
+
+    position: relative;
+
+    overflow: scroll;
 }
 
 #result-field {
@@ -184,7 +194,17 @@ body {
         "default-icon-picker canvas canvas custom-icon-spawners"
         "constant-spawner canvas canvas custom-icon-creator"
         "constant-spawner held-object tabs custom-icon-creator";
-    grid-template-columns: 10vw 10vw 70vw 10vw;
-    grid-template-rows: 5vh 85vh 5vh 5vh;
+    grid-template-columns: 15% 20% auto 15%;
+    grid-template-rows: 8% auto 8% 8%;
 
+    height: 100vh;
+    width: 100vw;
+
+    min-width:800px;
+    min-height:700px;
+
+    margin: 0px;
+    padding: 0px;
+
+    overflow: scroll;
 }
