@@ -17,7 +17,7 @@ let private defaultUnaryOperators : UnaryOperation list =
     [
         { Name = "+"; Op = id }
         { Name = "-"; Op = fun x -> -x }
-        { Name = "!"; Op = fun x -> if x = FalseValue then TrueValue else FalseValue }
+        { Name = "not"; Op = fun x -> if x = FalseValue then TrueValue else FalseValue }
     ]
 
 let private boolOutputToInt = binaryFuncResultConverter boolToInt
@@ -173,7 +173,7 @@ let private renderIcon
                 prop.className className
                 prop.children [
                     Html.i [
-                        prop.className ("fa " + iconName)
+                        prop.classes ["fa"; iconName]
                     ]
                 ]
             ]

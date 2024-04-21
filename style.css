@@ -58,7 +58,7 @@ body {
 
 .icon-parameter-delete {
     position: absolute;
-    font-size: 5px;
+    font-size: 8px;
 }
 
 .icon-parameter-text {
@@ -110,6 +110,8 @@ body {
     flex-direction: row;
     justify-content: center;
     align-items: center;
+
+    overflow-x: scroll;
 }
 
 #constant-spawner {
