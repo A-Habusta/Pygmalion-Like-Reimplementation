@@ -1,2 +1,6 @@
 # Pygmalion-Like Reimplementation
-This is my bachelors thesis program. The aim is to create a not-so-faithful recreation of the Pygmalion system, which was a pioneer in the field of icon programming. 
+This is my bachelors thesis program. The aim of the thesis is to recreate an example use case from a historical programming system called Pygmalion. The specific use case that the recreation is based on is the creation of an icon capable of computing the factorial of an integer. 
+
+The text of the thesis (which also contains the user documentation in the appendix) is available here:
+
+<https://a-habusta.github.io/bachelors-thesis/thesis.pdf>
