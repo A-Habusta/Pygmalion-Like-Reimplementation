@@ -31,6 +31,7 @@ type IconInstruction =
 and DrawnIcon =
     { X : int
       Y : int
+      Z : int // Used for drawing overlapping icons
       IconInstruction : IconInstruction
       Result : UnderlyingNumberDataType option }
 
@@ -38,6 +39,8 @@ and DrawnIcon =
         _.X, (fun newValue instance -> { instance with X = newValue })
     static member Y_ =
         _.Y, (fun newValue instance -> { instance with Y = newValue })
+    static member Z_ =
+        _.Z, (fun newValue instance -> { instance with Z = newValue })
     static member IconInstruction_ =
         _.IconInstruction, (fun newValue instance -> { instance with IconInstruction = newValue })
     static member Result_ =
@@ -105,7 +108,8 @@ type ExecutionState =
       LocalIcons : DrawnIcons
       CurrentBranchChoices : bool list
       Parameters : UnderlyingNumberDataType list
-      Result : UnderlyingNumberDataType option }
+      Result : UnderlyingNumberDataType option
+      LastZ : int }
 
     static member HeldObject_ =
         _.HeldObject, (fun newValue instance -> { instance with HeldObject = newValue})
@@ -117,18 +121,24 @@ type ExecutionState =
         _.Parameters, (fun newValue instance -> { instance with Parameters = newValue })
     static member Result_ =
         _.Result, (fun newValue instance -> { instance with ExecutionState.Result = newValue })
+    static member LastZ_ =
+        _.LastZ, (fun newValue instance -> { instance with LastZ = newValue })
 
 let baseExecutionState parameters =
     { HeldObject = NoObject
       LocalIcons = List.empty
       CurrentBranchChoices = List.empty
       Parameters = parameters
-      Result = None }
+      Result = None
+      LastZ = 0}
 
 let private invalidCustomIconNameCharacters = "\t\n\r_"
 
 exception private InternalRecursionTrapException of ExecutionState
 exception RecursionTrapException of CustomIconPrism * UnderlyingNumberDataType list * ExecutionState
+
+let private incrementLastZ =
+    (+) 1 ^% ExecutionState.LastZ_
 
 let transformInstructionParameters transform =
     transform ^% IconInstruction.Params_ // Optic.map
@@ -137,11 +147,12 @@ let replaceParameter position newParameter instruction =
     let transform = listReplaceIndex position newParameter
     transformInstructionParameters transform instruction
 
-let createDrawnIcon x y instruction =
+let createDrawnIcon x y z instruction =
     { IconInstruction = instruction
       Result = None
       X = x
-      Y = y }
+      Y = y
+      Z = z }
 
 let customIconNameContainsInvalidCharacter (name : string) =
     name |> Seq.exists (fun c -> invalidCustomIconNameCharacters.Contains(c))
@@ -156,14 +167,20 @@ let private placePickup target state =
         NoObject ^= ExecutionState.HeldObject_
 
     let createNewIconAt x y instruction =
-        let newDrawnIcon = createDrawnIcon x y instruction
-        state |> cons newDrawnIcon ^% ExecutionState.LocalIcons_
+        let z = state.LastZ
+        let newDrawnIcon = createDrawnIcon x y z instruction
+        state
+        |> cons newDrawnIcon ^% ExecutionState.LocalIcons_
+        |> incrementLastZ
 
     let placeIconAt x y targetPrism =
         let fullIconPrism = ExecutionState.LocalIcons_ >-> targetPrism
+        let z  = state.LastZ
         state
         |> x ^= (fullIconPrism >?> DrawnIcon.X_)
         |> y ^= (fullIconPrism >?> DrawnIcon.Y_)
+        |> z ^= (fullIconPrism >?> DrawnIcon.Z_)
+        |> incrementLastZ
 
     let heldObject = state ^. ExecutionState.HeldObject_
     match (target, heldObject) with

@@ -3,8 +3,6 @@ module PygmalionReimplementation.View
 open System
 open Feliz
 
-open Fable.Core.JsInterop
-
 open Aether
 open Aether.Operators
 
@@ -203,11 +201,13 @@ let private renderIcon
             prop.style [
                 style.left (length.px icon.X)
                 style.top (length.px icon.Y)
+                style.zIndex icon.Z
             ]
             prop.children [
                 renderIconIOField
                 renderIconActions
             ]
+            prop.onClick mouseEventPreventPropagation
         ]
     icon
 
