@@ -311,8 +311,13 @@ let private heldObjectView (state : State) =
 
     let heldObject =
         Html.div [
-            prop.id "held-object"
-            prop.text heldObjectToString
+            prop.id "held-object-container"
+            prop.children [
+                Html.p [
+                    prop.id "held-object-text"
+                    prop.text heldObjectToString
+                ]
+            ]
         ]
 
     heldObject

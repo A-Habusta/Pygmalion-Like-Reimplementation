@@ -84,6 +84,7 @@ body {
     margin: 5px;
 }
 
+
 .tab {
     padding: 5px;
     border: var(--default-border);
@@ -122,6 +123,7 @@ body {
     overflow-x: scroll;
 }
 
+
 #constant-spawner {
     grid-area: constant-spawner;
     border: var(--default-border);
@@ -137,6 +139,7 @@ body {
     width: 75%;
 }
 
+
 #custom-icon-creator {
     grid-area: custom-icon-creator;
     border: var(--default-border);
@@ -149,9 +152,14 @@ body {
 }
 
 
-#held-object {
+#held-object-container {
     grid-area: held-object;
     border: var(--default-border);
+    align-items: center;
+}
+
+#held-object-text  {
+    text-align: center;
 }
 
 
@@ -173,6 +181,7 @@ body {
     padding: 5px;
 }
 
+
 #icon-canvas {
     grid-area: canvas;
     border: var(--default-border);
@@ -181,6 +190,7 @@ body {
 
     overflow: scroll;
 }
+
 
 #result-field {
     grid-area: result-field;
@@ -196,6 +206,7 @@ body {
     height: var(--parameter-box-size);
     border: var(--default-border);
 }
+
 
 #root-container {
     display: grid;
