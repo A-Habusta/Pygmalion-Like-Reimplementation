@@ -24,6 +24,10 @@ body {
     font-size: 16pt;
 }
 
+ul {
+    list-style: none;
+}
+
 
 .icon {
     position: absolute;
@@ -137,6 +141,8 @@ body {
 
 .icon-spawner-button {
     width: 75%;
+    text-overflow: "..";
+    overflow: hidden;
 }
 
 
