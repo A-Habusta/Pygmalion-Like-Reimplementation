@@ -3,11 +3,16 @@
     --parameter-box-size: 40px;
     --default-border: 1px solid black;
     --bold-weight: 700;
+    --min-width: 800px;
+    --min-height: 700px;
+
+    --default-height: 100vh;
+    --default-width: 100vw;
 }
 
 body {
-    margin: 0;
-    padding: 0;
+    margin: 0px;
+    padding: 0px;
 }
 
 * {
@@ -199,14 +204,41 @@ body {
     grid-template-columns: 15% 20% auto 15%;
     grid-template-rows: 8% auto 8% 8%;
 
-    height: 100vh;
-    width: 100vw;
+    min-width:var(--min-width);
+    min-height:var(--min-height);
 
-    min-width:800px;
-    min-height:700px;
+    width: var(--default-width);
+    height: var(--default-height);
 
     margin: 0px;
     padding: 0px;
 
     overflow: scroll;
+}
+
+
+/* Modal css from this example https://www.w3schools.com/howto/howto_css_modals.asp */
+#initial-popup {
+    position: fixed;
+    left: 0;
+    top: 0;
+
+    margin: 0px;
+
+    width: var(--default-width);
+    height: var(--default-height);
+
+    z-index: 1;
+
+    /* Set backgroud to slightly dimmed */
+    background-color: rgba(0,0,0,0.3);
+    overflow-y: scroll;
+}
+
+#initial-popup-content {
+    background-color: #fefefe;
+    margin: 15% auto;
+    padding: 20px;
+    border: var(--default-border);
+    width: 80%;
 }

@@ -40,7 +40,8 @@ type State =
     { CustomIcons : CustomIcons
       ExecutionState : ExecutionState
       Tabs : Tabs
-      InputState : InputState }
+      InputState : InputState
+      IntialPopupClosed : bool }
 
     static member CustomIcons_ =
         _.CustomIcons, (fun value a -> { a with CustomIcons = value })
@@ -50,7 +51,10 @@ type State =
         _.Tabs, (fun value a -> { a with Tabs = value })
     static member InputState_ =
         _.InputState, (fun value a -> { a with InputState = value })
+    static member IntialPopupClosed_ =
+        _.IntialPopupClosed, (fun value a -> { a with IntialPopupClosed = value })
     static member CurrentTabPrism_ = State.Tabs_ >-> List.head_
+
 
 type InputAction =
     | SetConstantSpawnerText of string
@@ -63,6 +67,7 @@ type Action =
     | InputAction of InputAction
     | IconAction of ExecutionActionTree
     | CreateNewCustomIcon of string * int
+    | CloseInitialPopup
 
 let private createCustomIcon name (parameterCount : int) : CustomIcon =
     { Name = name
@@ -88,7 +93,8 @@ let init () : State =
     { ExecutionState = initialExecutionState
       CustomIcons = initialCustomIcons
       Tabs = initialTabs
-      InputState = initialInputState }
+      InputState = initialInputState
+      IntialPopupClosed = false }
 
 let createTab tabName tabCustomIconPrism parameters  =
     { TabName = tabName
@@ -207,3 +213,5 @@ let rec update (action : Action) state =
         updateWithInputAction inputAction state
     | IconAction iconAction ->
         applyIconAction iconAction state
+    | CloseInitialPopup ->
+        state |> true ^= State.IntialPopupClosed_

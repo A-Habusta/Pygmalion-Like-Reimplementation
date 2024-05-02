@@ -385,7 +385,7 @@ let private customIconCreatorView (state : State) (dispatch : Action -> unit) : 
 
     customIconCreator
 
-let tabParametersView (state : State) (dispatch : Action -> unit) : ReactElement =
+let private tabParametersView (state : State) (dispatch : Action -> unit) : ReactElement =
     let drawParameter index (parameter : int) =
         let parameterText =
             sprintf "%d" parameter
@@ -407,7 +407,7 @@ let tabParametersView (state : State) (dispatch : Action -> unit) : ReactElement
         ]
     parameters
 
-let resultFieldView (state : State) (dispatch : Action -> unit) : ReactElement =
+let private resultFieldView (state : State) (dispatch : Action -> unit) : ReactElement =
     let saveResult e =
         mouseEventPreventPropagation e
         SaveResult |> End |> IconAction |> dispatch
@@ -431,7 +431,7 @@ let resultFieldView (state : State) (dispatch : Action -> unit) : ReactElement =
 
     resultField
 
-let renderIconCanvas (state : State) (dispatch : Action -> unit) : ReactElement =
+let private renderIconCanvas (state : State) (dispatch : Action -> unit) : ReactElement =
     let canvasOnClick (e : Browser.Types.MouseEvent) =
         mouseEventPreventPropagation e
         let target = e.target :?> Browser.Types.Element
@@ -451,7 +451,7 @@ let renderIconCanvas (state : State) (dispatch : Action -> unit) : ReactElement 
         ]
     canvas
 
-let render (state : State) (dispatch : Action -> unit) : ReactElement =
+let private renderProgram (state : State) (dispatch : Action -> unit) : ReactElement =
     Html.div [
         prop.id "root-container"
         prop.children [
@@ -471,4 +471,45 @@ let render (state : State) (dispatch : Action -> unit) : ReactElement =
                 e.preventDefault()
                 CancelPickup |> wrapSimpleAction |> dispatch )
     ]
+
+let private renderIntialPopup dispatch =
+    let popupText =
+        [ Html.h3 "Before you begin!"
+          Html.p "This web application is the output program of my bachelors thesis, written at the Charles University Faculty of Mathematics and Science."
+          Html.p "The goal of this thesis was not to create a fully fledged programming system. Rather, it was to explore how the original system might have worked."
+          Html.p "For a quick guide on how to use the system, or a more in-depth guide into the topic, you can read my thesis here:"
+          Html.a [
+              prop.href "https://a-habusta-github.io/bachelors-thesis/thesis.pdf"
+              prop.text "Thesis"
+          ]
+          Html.p "Original programming system specification this entire project is based on:"
+          Html.a [
+              prop.href "https://apps.dtic.mil/sti/tr/pdf/ADA016811.pdf"
+              prop.text "PDF Link"
+          ]
+          Html.p "Click anywhere to dismiss this popup." ]
+
+    Html.div [
+        prop.id "initial-popup"
+        prop.children [
+            Html.div [
+                prop.id "initial-popup-content"
+                prop.children popupText
+            ]
+        ]
+    ]
+
+
+let render (state : State) (dispatch : Action -> unit) =
+    if state.IntialPopupClosed then
+        renderProgram state dispatch
+    else
+        Html.div [
+            prop.children [
+                renderIntialPopup dispatch
+                // Pass ignore as dispatch so no messages are actually dispatched
+                renderProgram state ignore
+            ]
+            prop.onClick (fun _ -> CloseInitialPopup |> dispatch)
+        ]
 
