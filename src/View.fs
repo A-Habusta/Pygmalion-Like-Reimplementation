@@ -215,25 +215,25 @@ let private renderIconInstances (state : State) (dispatch : Action -> unit) : Re
     state.ExecutionState.LocalIcons
     |> List.mapi (renderIcon state dispatch)
 
-let private spawnerView (text : string) (iconInstruction : IconInstruction) (dispatch : Action -> unit) : ReactElement =
+let private iconSpawnerView (text : string) (iconInstruction : IconInstruction) (dispatch : Action -> unit) : ReactElement =
     Html.button [
-        prop.className "spawner-button"
+        prop.className "icon-spawner-button"
         prop.text text
         prop.onClick (fun _ -> PickupNewIcon iconInstruction |> wrapSimpleAction |> dispatch)
     ]
-let private spawnerListTemplate dispatch (sectionName : string) iconSource =
-    let spawnerList =
+let private iconSpawnerListTemplate dispatch (sectionName : string) iconSource =
+    let iconSpawnerList =
         List.map
             (fun (text, instruction) ->
-                Html.li [ spawnerView text instruction dispatch ])
+                Html.li [ iconSpawnerView text instruction dispatch ])
     Html.div [
         Html.h4 sectionName
         Html.ul [
-            prop.children (spawnerList iconSource)
+            prop.children (iconSpawnerList iconSource)
         ]
     ]
 let private defaultIconSpawnersView (dispatch : Action -> unit) : ReactElement =
-    let boundSpawnerListTemplate = spawnerListTemplate dispatch
+    let boundIconSpawnerListTemplate = iconSpawnerListTemplate dispatch
     let defaultIconSpawners =
         let unaryOperatorsSpawnerBaseList =
             List.map (fun (op : UnaryOperation) ->
@@ -244,13 +244,13 @@ let private defaultIconSpawnersView (dispatch : Action -> unit) : ReactElement =
         Html.div [
             prop.id "default-icon-spawners"
             prop.children [
-                boundSpawnerListTemplate
+                boundIconSpawnerListTemplate
                     "Unary"
                     unaryOperatorsSpawnerBaseList
-                boundSpawnerListTemplate
+                boundIconSpawnerListTemplate
                     "Binary"
                     binaryOperatorsSpawnerBaseList
-                boundSpawnerListTemplate
+                boundIconSpawnerListTemplate
                     "Special"
                     [ ("If", If None)]
             ]
@@ -270,7 +270,7 @@ let private customIconSpawnersView (state : State) (dispatch : Action -> unit) :
     Html.div [
         prop.id "custom-icon-spawners"
         prop.children [
-            spawnerListTemplate dispatch "Custom" customIconSpawnerBaseList
+            iconSpawnerListTemplate dispatch "Custom" customIconSpawnerBaseList
         ]
     ]
 let private constantSpawnerView (state : State) (dispatch : Action -> unit) : ReactElement =

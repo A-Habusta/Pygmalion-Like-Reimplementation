@@ -135,7 +135,7 @@ body {
     padding: 5px;
 }
 
-.spawner-button {
+.icon-spawner-button {
     width: 75%;
 }
 
@@ -164,7 +164,7 @@ body {
 
 
 #default-icon-spawners {
-    grid-area: default-icon-picker;
+    grid-area: default-icon-spawners;
     border: var(--default-border);
     overflow-y: scroll;
     overflow-x: hidden;
@@ -211,8 +211,8 @@ body {
 #root-container {
     display: grid;
     grid-template-areas:
-        "default-icon-picker result-field tab-parameters custom-icon-spawners"
-        "default-icon-picker canvas canvas custom-icon-spawners"
+        "default-icon-spawners result-field tab-parameters custom-icon-spawners"
+        "default-icon-spawners canvas canvas custom-icon-spawners"
         "constant-spawner canvas canvas custom-icon-creator"
         "constant-spawner held-object tabs custom-icon-creator";
     grid-template-columns: 15% 20% auto 15%;
