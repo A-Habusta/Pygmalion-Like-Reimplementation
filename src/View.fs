@@ -482,7 +482,7 @@ let private renderIntialPopup dispatch =
         [ Html.h3 "Before you begin!"
           Html.p "This web application is the output program of my bachelors thesis, written at the Charles University Faculty of Mathematics and Science."
           Html.p "The goal of this thesis was not to create a fully fledged programming system. Rather, it was to explore how the original system might have worked."
-          Html.p "For a quick guide on how to use the system, or a more in-depth guide into the topic, you can read my thesis here:"
+          Html.p "For a quick guide on how to use the system, or  more in-depth information about the topic, you can read my thesis here:"
           Html.a [
               prop.href "https://a-habusta.github.io/bachelors-thesis/thesis.pdf"
               prop.text "Thesis"
