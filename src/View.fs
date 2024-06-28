@@ -436,7 +436,7 @@ let private resultFieldView (state : State) (dispatch : Action -> unit) : ReactE
 
     resultField
 
-let private renderIconCanvas (state : State) (dispatch : Action -> unit) : ReactElement =
+let private iconCanvas (state : State) (dispatch : Action -> unit) : ReactElement =
     let canvasOnClick (e : Browser.Types.MouseEvent) =
         mouseEventPreventPropagation e
         let target = e.target :?> Browser.Types.Element
@@ -464,7 +464,7 @@ let private renderProgram (state : State) (dispatch : Action -> unit) : ReactEle
             tabParametersView state dispatch
             defaultIconSpawnersView dispatch
             customIconSpawnersView state dispatch
-            renderIconCanvas state dispatch
+            iconCanvas state dispatch
             customIconCreatorView state dispatch
             constantSpawnerView state dispatch
             resultFieldView state dispatch
@@ -507,8 +507,10 @@ let private renderIntialPopup dispatch =
 
 let render (state : State) (dispatch : Action -> unit) =
     if state.IntialPopupClosed then
+        // Render regular page
         renderProgram state dispatch
     else
+        // Render page with overlayed popup, ignoring all messages from regular page
         Html.div [
             prop.children [
                 renderIntialPopup dispatch
