@@ -2,6 +2,8 @@
     --parameter-box-size: 30px;
     --default-border: 1px solid black;
     --bold-weight: 700;
+
+    font-size: larger;
 }
 
 body {
@@ -149,6 +151,7 @@ body {
 #default-icon-spawners {
     grid-area: default-icon-picker;
     border: var(--default-border);
+    overflow: auto;
 }
 
 
@@ -168,7 +171,7 @@ body {
         "default-icon-picker canvas canvas custom-icon-picker"
         "constant-spawner canvas canvas custom-icon-creator"
         "constant-spawner held-object tabs custom-icon-creator";
-    grid-template-columns: 10vw 10vw 70vw 10vw;
-    grid-template-rows: 5vh 85vh 5vh 5vh;
+    grid-template-columns: 15vw 15vw 55vw 15vw;
+    grid-template-rows: 10vh 74vh 8vh 8vh;
 
 }
