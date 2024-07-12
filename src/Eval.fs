@@ -37,8 +37,8 @@ let getCorrectBinaryOperation operator =
     | _ -> getCorrectCompareBinaryOperation operator
 
 type EvalContext =
-    { CustomIcons : CustomIcons
-      ExecutingCustomIconName : string
+    { CustomOperations : CustomOperations
+      ExecutingCustomOperationName : string
       CurrentIconID : IconID option
       Parameters : int list
       RecursionDepth : int }
@@ -60,27 +60,27 @@ let evalBinary operator rawOperand1 rawOperand2 paramEval results =
     |> fun result -> (result, resultsTableSecond)
 
 
-let getCustomIcon (context : EvalContext) =
-    context.CustomIcons.[context.ExecutingCustomIconName]
+let getCustomOperation (context : EvalContext) =
+    context.CustomOperations.[context.ExecutingCustomOperationName]
 
 exception TrapException of EvalContext * IconResultsTable
 
-let evalCustomIcon
+let evalCustomOperation
     (oldContext : EvalContext)
-    customIconName
-    customIconParameters
+    customOperationName
+    customOperationParameters
     (iconEval : EvalContext -> IconResultsTable -> IconID -> IconResultsTable)
     : int =
-    let customIcon = oldContext.CustomIcons[customIconName]
-    let nextIconID = customIcon.EntryPointIcon
+    let customOperation = oldContext.CustomOperations[customOperationName]
+    let nextIconID = customOperation.EntryPointIcon
 
     printf "Entry point icon: %A\n" nextIconID
 
     let newContext =
         { oldContext with
-            ExecutingCustomIconName = customIconName
+            ExecutingCustomOperationName = customOperationName
             CurrentIconID = nextIconID
-            Parameters = customIconParameters
+            Parameters = customOperationParameters
             RecursionDepth = oldContext.RecursionDepth + 1}
 
     if Option.isNone(nextIconID) then raise (TrapException(newContext, Map.empty))
@@ -90,8 +90,8 @@ let evalCustomIcon
     |> fun results -> results[nextIconActualID]
 
 let getIconInstructionFromID (context : EvalContext) (id : IconID) =
-    getCustomIcon context
-    |> fun customIcon -> customIcon.SavedIcons[id].IconInstruction
+    getCustomOperation context
+    |> fun customOperation -> customOperation.SavedIcons[id].Operation
 
 
 let trap (context : EvalContext) (results : IconResultsTable) =
@@ -104,7 +104,7 @@ let eval (context : EvalContext) (targetID : IconID) =
         let saveOutput (output : int * IconResultsTable) : IconResultsTable =
             let (result, resultsTable) = output
             resultsTable.Add(targetID, result)
-        let saveCustomIconEvalOutput (newResults : IconResultsTable) (output : int) : IconResultsTable =
+        let saveCustomOperationEvalOutput (newResults : IconResultsTable) (output : int) : IconResultsTable =
             newResults.Add(targetID, output)
 
         match getIconInstructionFromID context targetID with
@@ -115,13 +115,13 @@ let eval (context : EvalContext) (targetID : IconID) =
             evalBinary operator operand1 operand2 boundParamEval results
             |> saveOutput
         | If(condition) ->
-            let trueName, falseName = getCustomIfIconNames context.ExecutingCustomIconName targetID
+            let trueName, falseName = getCustomIfIconNames context.ExecutingCustomOperationName targetID
             let (conditionResult, newResultsTable) = boundParamEval results condition
-            let targetCustomIconName = if conditionResult = FalseValue then falseName else trueName
+            let targetCustomOperationName = if conditionResult = FalseValue then falseName else trueName
 
-            evalCustomIcon context targetCustomIconName context.Parameters internalEval
-            |> saveCustomIconEvalOutput newResultsTable
-        | CallCustomIcon(typeName, parameters) ->
+            evalCustomOperation context targetCustomOperationName context.Parameters internalEval
+            |> saveCustomOperationEvalOutput newResultsTable
+        | CallCustomOperation(typeName, parameters) ->
             let (evaluatedParameters, newResultsTable) =
                 List.foldBack
                     (fun parameter (evalResults, resultsTable) ->
@@ -129,19 +129,19 @@ let eval (context : EvalContext) (targetID : IconID) =
                         (result :: evalResults, newResultsTable))
                     parameters
                     ([], results)
-            evalCustomIcon context typeName evaluatedParameters internalEval
-            |> saveCustomIconEvalOutput newResultsTable
+            evalCustomOperation context typeName evaluatedParameters internalEval
+            |> saveCustomOperationEvalOutput newResultsTable
         | TopLevelTrap -> trap context results
 
-    and iconParameterEval (context : EvalContext) (results : IconResultsTable) (parameter : IconInstructionParameter) : int * IconResultsTable =
+    and iconParameterEval (context : EvalContext) (results : IconResultsTable) (parameter : IconOperationParameter) : int * IconResultsTable =
         let wrapOutput (output : int) =
             (output, results)
         match parameter with
         | Constant value -> wrapOutput value
-        | BaseIconParameter index ->
+        | OperationParameter index ->
             let parameterValue = context.Parameters.[index]
             wrapOutput parameterValue
-        | LocalIconInstructionReference id ->
+        | LocalIconReference id ->
             match results.TryFind id with
             | Some result -> wrapOutput result
             | None ->

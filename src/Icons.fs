@@ -4,107 +4,107 @@ open System
 
 type IconID = Guid
 
-type IconInstructionParameter =
+type IconOperationParameter =
     | Trap
     | Constant of int
-    | BaseIconParameter of int
-    | LocalIconInstructionReference of IconID
+    | OperationParameter of int
+    | LocalIconReference of IconID
 
-type IconInstruction =
+type IconOperation =
     | TopLevelTrap
-    | Unary of operator : string * IconInstructionParameter
-    | Binary of operator : string * IconInstructionParameter * IconInstructionParameter
-    | If of IconInstructionParameter
-    | CallCustomIcon of customIconName : string * IconInstructionParameter list
+    | Unary of operator : string * IconOperationParameter
+    | Binary of operator : string * IconOperationParameter * IconOperationParameter
+    | If of IconOperationParameter
+    | CallCustomOperation of customOperationName : string * IconOperationParameter list
 
 let newIconID () = Guid.NewGuid()
 
-let extractInstructionParameters instruction =
-    match instruction with
+let extractOperationParameters operation =
+    match operation with
     | TopLevelTrap -> []
     | Unary(_, param) -> [ param ]
     | Binary(_, param1, param2) -> [ param1; param2 ]
     | If(arg) -> [ arg; ]
-    | CallCustomIcon (_, parameters) -> parameters
-let saveParametersInInstruction (instruction : IconInstruction) (parameters: IconInstructionParameter list) =
-    match instruction with
+    | CallCustomOperation (_, parameters) -> parameters
+let saveParametersInOperation (operation : IconOperation) (parameters: IconOperationParameter list) =
+    match operation with
     | Unary(op, _) -> Unary(op, parameters[0])
     | Binary(op, _, _) -> Binary(op, parameters[0], parameters[1])
     | If _ -> If(parameters[0])
-    | CallCustomIcon (iconType, _) -> CallCustomIcon(iconType, parameters)
-    | _ -> instruction
+    | CallCustomOperation (iconType, _) -> CallCustomOperation(iconType, parameters)
+    | _ -> operation
 
-let transformInstructionParameters transform (instruction : IconInstruction) =
-    instruction
-    |> extractInstructionParameters
+let transformOperationParameters transform (operation : IconOperation) =
+    operation
+    |> extractOperationParameters
     |> transform
-    |> saveParametersInInstruction instruction
+    |> saveParametersInOperation operation
 
-let replaceParameter position newParameter instruction =
+let replaceParameter position newParameter operation =
     let transform =
         List.mapi (fun i param ->
             if i = position then newParameter
             else param )
-    transformInstructionParameters transform instruction
+    transformOperationParameters transform operation
 
 type IconType =
     | BaseUnaryIcon of operation : string
     | BaseBinaryIcon of operation : string
     | BaseIfIcon
-    | CustomIcon of customIconName : string * parameterCount : int
+    | CustomOperation of customOperationName : string * parameterCount : int
 
-let createEmptyIconInstruction (iconType : IconType) =
+let createEmptyIconOperation (iconType : IconType) =
     match iconType with
     | BaseUnaryIcon op -> Unary(op, Trap)
     | BaseBinaryIcon op -> Binary(op, Trap, Trap)
     | BaseIfIcon -> If(Trap)
-    | CustomIcon(customIconName, paramCount) -> CallCustomIcon(customIconName, List.init paramCount (fun _ -> Trap))
+    | CustomOperation(customOperationName, paramCount) -> CallCustomOperation(customOperationName, List.init paramCount (fun _ -> Trap))
 
-type DrawnIcon =
+type Icon =
     { X : int
       Y : int
       IconType : IconType
-      IconInstruction : IconInstruction }
+      Operation : IconOperation }
 
-type IconTable = Map<IconID, DrawnIcon>
-let createDrawnIcon x y iconType =
+type IconTable = Map<IconID, Icon>
+let createIcon x y iconType =
     { X = x
       Y = y
       IconType = iconType
-      IconInstruction = createEmptyIconInstruction iconType }
+      Operation = createEmptyIconOperation iconType }
 
-type CustomIconType =
+type CustomOperation =
     { ParameterCount : int
       SavedIcons : IconTable
       EntryPointIcon : IconID option}
 
-type CustomIcons = Map<string, CustomIconType>
+type CustomOperations = Map<string, CustomOperation>
 
 type IconResultsTable = Map<IconID, int>
 
-let InvalidCustomIconNameCharacters = "\t\n\r_;"
-let CustomIconNameVisiblePartDivider = ";"
+let InvalidCustomOperationNameCharacters = "\t\n\r_;"
+let CustomOperationNameVisiblePartDivider = ";"
 
-let CustomIconNameContainsInvalidCharacter (name : string) =
-    name |> Seq.exists (fun c -> InvalidCustomIconNameCharacters.Contains(c))
+let CustomOperationNameContainsInvalidCharacter (name : string) =
+    name |> Seq.exists (fun c -> InvalidCustomOperationNameCharacters.Contains(c))
 
-let CustomIconNameRemoveInvisiblePart (name : string) =
-    name.Split(CustomIconNameVisiblePartDivider)[0]
+let CustomOperationNameRemoveInvisiblePart (name : string) =
+    name.Split(CustomOperationNameVisiblePartDivider)[0]
 
-let DrawnIconVisibleIdCharacters = 4
+let IconVisibleIdCharacters = 4
 
-let GetDrawnIconIdCharacters (iconId : IconID) (charCount : int) =
+let GetIconIdCharacters (iconId : IconID) (charCount : int) =
     iconId.ToString().Substring(0, charCount)
 
-let private ifTrueCustomIconNameSuffix= "_true_"
+let private ifTrueCustomOperationNameSuffix= "_true_"
 
-let private ifFalseCustomIconNameSuffix= "_false_"
+let private ifFalseCustomOperationNameSuffix= "_false_"
 
-let private buildIfCustomIconName (parentCustomIconName : string) (id : IconID) (suffix : string) =
-    let visibleId = GetDrawnIconIdCharacters id DrawnIconVisibleIdCharacters
-    sprintf "%s%s%s" parentCustomIconName suffix visibleId
+let private buildIfCustomOperationName (parentCustomOperationName : string) (id : IconID) (suffix : string) =
+    let visibleId = GetIconIdCharacters id IconVisibleIdCharacters
+    sprintf "%s%s%s" parentCustomOperationName suffix visibleId
 
-let getCustomIfIconNames (parentCustomIconName : string) (id : IconID) =
-    let trueName = buildIfCustomIconName parentCustomIconName id ifTrueCustomIconNameSuffix
-    let falseName = buildIfCustomIconName parentCustomIconName id ifFalseCustomIconNameSuffix
+let getCustomIfIconNames (parentCustomOperationName : string) (id : IconID) =
+    let trueName = buildIfCustomOperationName parentCustomOperationName id ifTrueCustomOperationNameSuffix
+    let falseName = buildIfCustomOperationName parentCustomOperationName id ifFalseCustomOperationNameSuffix
     (trueName, falseName)

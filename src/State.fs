@@ -10,7 +10,7 @@ type MovableObject =
     | NoObject
     | ExistingIcon of IconID
     | NewIcon of IconType
-    | Parameter of IconInstructionParameter
+    | Parameter of IconOperationParameter
 
 type MovableObjectTarget =
     | Position of x : int * y : int
@@ -18,16 +18,16 @@ type MovableObjectTarget =
 
 type TabState =
     { Name : string
-      MasterCustomIconName : string
-      MasterCustomIconParameters : int list
+      MasterCustomOperationName : string
+      MasterCustomOperationParameters : int list
       IconResultData : IconResultsTable }
 
 type State =
     { HeldObject : MovableObject
-      CustomIcons : CustomIcons
+      CustomOperations : CustomOperations
       ConstantSpawnerText : string
-      CustomIconCreatorName : string
-      CustomIconCreatorParameterCount : string
+      CustomOperationCreatorName : string
+      CustomOperationCreatorParameterCount : string
       CurrentTabIndex : int
       Tabs : TabState list }
 
@@ -36,39 +36,39 @@ type Message =
     | EvaluateIcon of IconID
     | PickupNewIcon of IconType
     | PickupIcon of IconID
-    | PickupIconParameter of IconInstructionParameter
+    | PickupIconParameter of IconOperationParameter
     | PlacePickup of MovableObjectTarget
     | CancelPickup
     | RemoveIcon of IconID
     | RemoveIconParameter of target : IconID * position : int
     | ChangeConstantSpawnerText of text : string
-    | ChangeCustomIconCreatorName of name : string
-    | ChangeCustomIconCreatorParameterCount of count : string
+    | ChangeCustomOperationCreatorName of name : string
+    | ChangeCustomOperationCreatorParameterCount of count : string
     | SwitchToTab of index : int
     | RemoveTab of index : int
-    | CreateCustomIcon of Name : string * ParameterCount : int
-    | EditCustomIcon of Name : string
+    | CreateCustomOperation of Name : string * ParameterCount : int
+    | EditCustomOperation of Name : string
     | NotImplemented of message : string
 
 let getCurrentTab (state : State) =
     state.Tabs.[state.CurrentTabIndex]
 
-let getMasterCustomIconName (state : State) =
+let getMasterCustomOperationName (state : State) =
     getCurrentTab state
-    |> fun tab -> tab.MasterCustomIconName
+    |> fun tab -> tab.MasterCustomOperationName
 
-let getMasterCustomIcon (state : State) =
-    getMasterCustomIconName state
-    |> fun name -> state.CustomIcons.[name]
+let getMasterCustomOperation (state : State) =
+    getMasterCustomOperationName state
+    |> fun name -> state.CustomOperations.[name]
 
-let getMasterCustomIconParameters (state : State) =
+let getMasterCustomOperationParameters (state : State) =
     getCurrentTab state
-    |> fun tab -> tab.MasterCustomIconParameters
+    |> fun tab -> tab.MasterCustomOperationParameters
 
 let getIconTableFromState (state : State) =
     getCurrentTab state
     |> fun tab ->
-        state.CustomIcons.[tab.MasterCustomIconName].SavedIcons
+        state.CustomOperations.[tab.MasterCustomOperationName].SavedIcons
 
 let getIconFromState (state : State) (id : IconID) =
     getIconTableFromState state |> Map.find id
@@ -108,31 +108,31 @@ let stateWithMergedIconResults (newResults : IconResultsTable) (state : State) =
     stateWithNewIconResults (mergeIconResults oldResults newResults) state
 
 let private stateWithNewIconTable (state : State) (newIconTable : IconTable) =
-    let customIconName = getMasterCustomIconName state
+    let customOperationName = getMasterCustomOperationName state
     { state with
-        CustomIcons =
-            state.CustomIcons
+        CustomOperations =
+            state.CustomOperations
             |> Map.add
-                customIconName
-                { state.CustomIcons[customIconName] with SavedIcons = newIconTable } }
+                customOperationName
+                { state.CustomOperations[customOperationName] with SavedIcons = newIconTable } }
 
 let private stateWithNewEntryPoint (id : IconID option) (state : State) =
-    let customIconName = getMasterCustomIconName state
+    let customOperationName = getMasterCustomOperationName state
     { state with
-        CustomIcons =
-            state.CustomIcons
+        CustomOperations =
+            state.CustomOperations
             |> Map.add
-                customIconName
-                { state.CustomIcons[customIconName] with EntryPointIcon = id } }
+                customOperationName
+                { state.CustomOperations[customOperationName] with EntryPointIcon = id } }
 
-let private stateWithNewCustomIcon (name : string) (icon : CustomIconType) (state : State) =
+let private stateWithNewCustomOperation (name : string) (icon : CustomOperation) (state : State) =
     { state with
-        CustomIcons =
-            state.CustomIcons
+        CustomOperations =
+            state.CustomOperations
             |> Map.add name icon }
 
-let private stateWithNewIcon (state : State) (id : IconID) (newIcon : DrawnIcon) =
-    let currentIconHasEntryPoint = getMasterCustomIcon state |> fun icon -> icon.EntryPointIcon <> None
+let private stateWithNewIcon (state : State) (id : IconID) (newIcon : Icon) =
+    let currentIconHasEntryPoint = getMasterCustomOperation state |> fun icon -> icon.EntryPointIcon <> None
     let newState = stateWithNewIconTable state (getIconTableFromState state |> Map.add id newIcon)
     // First placed icon is automatically the entry point
     if not currentIconHasEntryPoint then
@@ -144,32 +144,32 @@ let private stateReplaceParameter
     (state : State)
     (targetID : IconID)
     (position : int)
-    (newParameter : IconInstructionParameter) =
+    (newParameter : IconOperationParameter) =
     let icon = getIconFromState state targetID
-    { icon with IconInstruction = replaceParameter position newParameter icon.IconInstruction }
+    { icon with Operation = replaceParameter position newParameter icon.Operation }
     |> stateWithNewIcon state targetID
 
 let private evalIconFromState (state : State) (id : IconID) =
     let context =
-        { CustomIcons = state.CustomIcons
-          ExecutingCustomIconName = (getCurrentTab state).MasterCustomIconName
+        { CustomOperations = state.CustomOperations
+          ExecutingCustomOperationName = (getCurrentTab state).MasterCustomOperationName
           CurrentIconID = Some id
-          Parameters = getMasterCustomIconParameters state
+          Parameters = getMasterCustomOperationParameters state
           RecursionDepth = 0 }
     stateWithMergedIconResults (eval context id) state
 
 let private removeIconReferencesFromTable (targetID : IconID) (table : IconTable) : IconTable =
-    let removeIconReferencesFromIcon (icon : DrawnIcon) =
-        let removeIconReferencesFromInstruction (instruction : IconInstruction) =
-            let removeIconReferencesFromParameter (parameter : IconInstructionParameter) =
+    let removeIconReferencesFromIcon (icon : Icon) =
+        let removeIconReferencesFromInstruction (instruction : IconOperation) =
+            let removeIconReferencesFromParameter (parameter : IconOperationParameter) =
                 match parameter with
-                | LocalIconInstructionReference id when id = targetID ->
+                | LocalIconReference id when id = targetID ->
                     Trap
                 | _ ->
                     parameter
-            transformInstructionParameters (List.map removeIconReferencesFromParameter) instruction
+            transformOperationParameters (List.map removeIconReferencesFromParameter) instruction
         { icon with
-            IconInstruction = removeIconReferencesFromInstruction icon.IconInstruction }
+            Operation = removeIconReferencesFromInstruction icon.Operation }
     table
     |> Map.map (fun _ icon -> removeIconReferencesFromIcon icon)
 
@@ -178,19 +178,19 @@ let removeTabFromState (state : State) (index : int) =
         Tabs = listRemoveIndex index state.Tabs
         CurrentTabIndex = state.CurrentTabIndex - (if index < state.CurrentTabIndex then 1 else 0) }
 
-let removeCustomIcon (name : string) (state : State) =
-//    let newCustomIcons = state.CustomIcons |> Map.remove name
+let removeCustomOperation (name : string) (state : State) =
+//    let newCustomOperations = state.CustomOperations |> Map.remove name
 //    let newTabs =
 //        state.Tabs |>
 //    { state with
-//        CustomIcons = newCustomIcons
+//        CustomOperations = newCustomOperations
 //        Tabs = newTabs
 //        CurrentTabIndex = 0 }
     //TODO:
     state
 
 let isCurrentEntryPoint (id : IconID) (state : State) =
-    getMasterCustomIcon state
+    getMasterCustomOperation state
     |> fun icon -> icon.EntryPointIcon = Some id
 
 let unevaluateAllMatchingTabs (masterIconName : string) (state : State) =
@@ -198,48 +198,48 @@ let unevaluateAllMatchingTabs (masterIconName : string) (state : State) =
         Tabs =
             state.Tabs
             |> List.map (fun tab ->
-                if tab.MasterCustomIconName = masterIconName then
+                if tab.MasterCustomOperationName = masterIconName then
                     { tab with IconResultData = Map.empty }
                 else
                     tab ) }
 
-let private addCustomIfIcons trueName falseName (state : State) =
-    let parentParamCount = getMasterCustomIcon state |> fun icon -> icon.ParameterCount
+let private addCustomIfOperations trueName falseName (state : State) =
+    let parentParamCount = getMasterCustomOperation state |> fun icon -> icon.ParameterCount
 
-    let newTrueCustomIcon =
+    let newTrueCustomOperation =
         { ParameterCount = parentParamCount
           SavedIcons = Map.empty
           EntryPointIcon = None }
 
-    let newFalseCustomIcon =
+    let newFalseCustomOperation =
         { ParameterCount = parentParamCount
           SavedIcons = Map.empty
           EntryPointIcon = None }
 
     state
-    |> stateWithNewCustomIcon trueName newTrueCustomIcon
-    |> stateWithNewCustomIcon falseName newFalseCustomIcon
+    |> stateWithNewCustomOperation trueName newTrueCustomOperation
+    |> stateWithNewCustomOperation falseName newFalseCustomOperation
 
 let private removeCustomIfIcons ifID (state : State) =
-    let trueName, falseName = getCustomIfIconNames (getMasterCustomIconName state) ifID
-    let newCustomIcons =
-        state.CustomIcons
+    let trueName, falseName = getCustomIfIconNames (getMasterCustomOperationName state) ifID
+    let newCustomOperations =
+        state.CustomOperations
         |> Map.remove trueName
         |> Map.remove falseName
 
     let newTabs =
         state.Tabs
         |> List.filter
-            (fun tab -> tab.MasterCustomIconName <> trueName && tab.MasterCustomIconName <> falseName)
+            (fun tab -> tab.MasterCustomOperationName <> trueName && tab.MasterCustomOperationName <> falseName)
 
     { state with
-        CustomIcons = newCustomIcons
+        CustomOperations = newCustomOperations
         Tabs = newTabs
         CurrentTabIndex = 0 }
 
 let private createIfIcon (ifID : IconID) (state : State) =
-    let trueName, falseName = getCustomIfIconNames (getMasterCustomIconName state) ifID
-    addCustomIfIcons trueName falseName state
+    let trueName, falseName = getCustomIfIconNames (getMasterCustomOperationName state) ifID
+    addCustomIfOperations trueName falseName state
 
 let private removeIcon (id : IconID) (state : State) =
     let iconType = getIconFromState state id |> fun icon -> icon.IconType
@@ -248,7 +248,7 @@ let private removeIcon (id : IconID) (state : State) =
         |> Map.remove id
         |> removeIconReferencesFromTable id
         |> stateWithNewIconTable state
-        |> unevaluateAllMatchingTabs (getMasterCustomIconName state)
+        |> unevaluateAllMatchingTabs (getMasterCustomOperationName state)
         |> fun newState ->
             if isCurrentEntryPoint id newState then
                 newState |> stateWithNewEntryPoint None
@@ -261,30 +261,30 @@ let private removeIcon (id : IconID) (state : State) =
     | _ ->
         stateWithRemovedIcon
 
-let dummyCustomIconName = "_main"
+let dummyCustomOperationName = "_main"
 
-let private dummyCustomIcon : CustomIconType =
+let private dummyCustomOperation : CustomOperation =
     { ParameterCount = 0
       SavedIcons = Map.empty
       EntryPointIcon = None }
 
-let private initialCustomIcons : CustomIcons =
-    Map.empty |> Map.add dummyCustomIconName dummyCustomIcon
+let private initialCustomOperations : CustomOperations =
+    Map.empty |> Map.add dummyCustomOperationName dummyCustomOperation
 
 let mainTabName = "Main"
 
 let initalTabState =
     { Name = mainTabName
-      MasterCustomIconName = dummyCustomIconName
-      MasterCustomIconParameters = List.empty
+      MasterCustomOperationName = dummyCustomOperationName
+      MasterCustomOperationParameters = List.empty
       IconResultData = Map.empty }
 
 let init () : State =
     { HeldObject = NoObject
-      CustomIcons = initialCustomIcons
+      CustomOperations = initialCustomOperations
       ConstantSpawnerText = String.Empty
-      CustomIconCreatorName = String.Empty
-      CustomIconCreatorParameterCount = String.Empty
+      CustomOperationCreatorName = String.Empty
+      CustomOperationCreatorParameterCount = String.Empty
       CurrentTabIndex = 0
       Tabs = [ initalTabState ] }
 
@@ -311,7 +311,7 @@ let update (message : Message) (state : State) : State =
             match targetLocation with
             | Position (x, y) ->
                 let newID = newIconID ()
-                createDrawnIcon x y newIconType
+                createIcon x y newIconType
                 |> stateWithNewIcon state newID
                 |> if newIconType = BaseIfIcon then createIfIcon newID else id
                 |> Some
@@ -331,7 +331,7 @@ let update (message : Message) (state : State) : State =
             | IconParameter (targetID, position) ->
                 getIconFromState state targetID
                 |> fun icon ->
-                    { icon with IconInstruction = replaceParameter position parameter icon.IconInstruction }
+                    { icon with Operation = replaceParameter position parameter icon.Operation }
                 |> stateWithNewIcon state targetID
                 |> Some
             | _ ->
@@ -346,9 +346,9 @@ let update (message : Message) (state : State) : State =
                 stateWithNewIconResults newIconResults state
             else
                 let newTab =
-                    { Name = context.ExecutingCustomIconName
-                      MasterCustomIconName = context.ExecutingCustomIconName
-                      MasterCustomIconParameters = context.Parameters
+                    { Name = context.ExecutingCustomOperationName
+                      MasterCustomOperationName = context.ExecutingCustomOperationName
+                      MasterCustomOperationParameters = context.Parameters
                       IconResultData = partialResults }
                 state
                 |> addNewTab newTab
@@ -372,26 +372,26 @@ let update (message : Message) (state : State) : State =
     | RemoveIconParameter (targetID, position) ->
         getIconFromState state targetID
         |> fun icon ->
-            { icon with IconInstruction = replaceParameter position Trap icon.IconInstruction }
+            { icon with Operation = replaceParameter position Trap icon.Operation }
         |> stateWithNewIcon state targetID
     | ChangeConstantSpawnerText text ->
         { state with ConstantSpawnerText = text }
-    | ChangeCustomIconCreatorName name ->
-        if CustomIconNameContainsInvalidCharacter name then
+    | ChangeCustomOperationCreatorName name ->
+        if CustomOperationNameContainsInvalidCharacter name then
             state
         else
-        { state with CustomIconCreatorName = name }
-    | ChangeCustomIconCreatorParameterCount count ->
-        { state with CustomIconCreatorParameterCount = count }
+        { state with CustomOperationCreatorName = name }
+    | ChangeCustomOperationCreatorParameterCount count ->
+        { state with CustomOperationCreatorParameterCount = count }
     | SwitchToTab index ->
         switchToTab index state
-    | EditCustomIcon name ->
-        match Map.tryFind name state.CustomIcons with
-        | Some customIcon ->
+    | EditCustomOperation name ->
+        match Map.tryFind name state.CustomOperations with
+        | Some customOperation ->
             let newTab =
                 { Name = name
-                  MasterCustomIconName = name
-                  MasterCustomIconParameters = List.init customIcon.ParameterCount (fun _ -> 0)
+                  MasterCustomOperationName = name
+                  MasterCustomOperationParameters = List.init customOperation.ParameterCount (fun _ -> 0)
                   IconResultData = Map.empty }
             state
             |> addNewTab newTab
@@ -399,20 +399,20 @@ let update (message : Message) (state : State) : State =
         | None ->
             state
 
-    | CreateCustomIcon(name, parameterCount) ->
-        match Map.tryFind name state.CustomIcons with
+    | CreateCustomOperation(name, parameterCount) ->
+        match Map.tryFind name state.CustomOperations with
         | Some _ ->
             state
         | None ->
-            if CustomIconNameContainsInvalidCharacter name then
+            if CustomOperationNameContainsInvalidCharacter name then
                 state
             else
-                let newCustomIcon =
+                let newCustomOperation =
                     { ParameterCount = parameterCount
                       SavedIcons = Map.empty
                       EntryPointIcon = None }
                 state
-                |> stateWithNewCustomIcon name newCustomIcon
+                |> stateWithNewCustomOperation name newCustomOperation
 
     | RemoveTab index ->
         removeTabFromState state index
