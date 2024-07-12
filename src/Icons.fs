@@ -7,21 +7,21 @@ open System
 open PygmalionReimplementation.Utils
 open PygmalionReimplementation.SimpleEval
 
-type IconInstruction =
-    | Unary of operator : UnaryOperation * IconInstructionParameter
-    | Binary of operator : BinaryOperation * IconInstructionParameter * IconInstructionParameter
-    | If of IconInstructionParameter
-    | CallCustomIcon of customIconName : CustomIconPrism * IconInstructionParameter list
+type IconOperation =
+    | Unary of operator : UnaryOperation * IconOperationParameter
+    | Binary of operator : BinaryOperation * IconOperationParameter * IconOperationParameter
+    | If of IconOperationParameter
+    | CallCustomIcon of customIconName : CustomIconPrism * IconOperationParameter list
 
     static member Params_ =
-        let view instruction =
-            match instruction with
+        let view operation =
+            match operation with
             | Unary(_, param) -> [ param ]
             | Binary(_, param1, param2) -> [ param1; param2 ]
             | If(arg) -> [ arg; ]
             | CallCustomIcon (_, parameters) -> parameters
-        let update (parameters : IconInstructionParameter list) instruction =
-            match instruction with
+        let update (parameters : IconOperationParameter list) operation =
+            match operation with
             | Unary(op, _) -> Unary(op, parameters[0])
             | Binary(op, _, _) -> Binary(op, parameters[0], parameters[1])
             | If _ -> If(parameters[0])
@@ -32,7 +32,7 @@ and IconInstance =
     { X : int
       Y : int
       Z : int // Used for drawing overlapping icons
-      IconInstruction : IconInstruction
+      Operation : IconOperation
       Result : UnderlyingNumberDataType option }
 
     static member X_ =
@@ -41,8 +41,8 @@ and IconInstance =
         _.Y, (fun newValue instance -> { instance with Y = newValue })
     static member Z_ =
         _.Z, (fun newValue instance -> { instance with Z = newValue })
-    static member IconInstruction_ =
-        _.IconInstruction, (fun newValue instance -> { instance with IconInstruction = newValue })
+    static member Operation_ =
+        _.Operation, (fun newValue instance -> { instance with Operation = newValue })
     static member Result_ =
         _.Result, (fun newValue instance -> { instance with Result = newValue })
 
@@ -52,7 +52,7 @@ and IconInstancePrism = Prism<IconInstances, IconInstance>
 and MovableObject =
     | NoObject
     | ExistingIcon of IconInstancePrism
-    | NewIcon of IconInstruction
+    | NewIcon of IconOperation
     | Number of UnderlyingNumberDataType
 
 and MovableObjectTarget =
@@ -73,7 +73,7 @@ and CustomIcon =
 
 and SimpleExecutionAction =
     | EvaluateSimpleIcon of IconInstancePrism
-    | PickupNewIcon of IconInstruction
+    | PickupNewIcon of IconOperation
     | PickupIcon of IconInstancePrism
     | PickupNumber of UnderlyingNumberDataType
     | PickupExecutionStateParameter of parameterIndex : int
@@ -140,15 +140,15 @@ exception RecursionTrapException of CustomIconPrism * UnderlyingNumberDataType l
 let private incrementLastZ =
     (+) 1 ^% ExecutionState.LastZ_
 
-let transformInstructionParameters transform =
-    transform ^% IconInstruction.Params_ // Optic.map
+let transformOperationParameters transform =
+    transform ^% IconOperation.Params_ // Optic.map
 
-let replaceParameter position newParameter instruction =
+let replaceParameter position newParameter operation =
     let transform = listReplaceIndex position newParameter
-    transformInstructionParameters transform instruction
+    transformOperationParameters transform operation
 
-let createIconInstance x y z instruction =
-    { IconInstruction = instruction
+let createIconInstance x y z operation =
+    { Operation = operation
       Result = None
       X = x
       Y = y
@@ -159,16 +159,16 @@ let customIconNameContainsInvalidCharacter (name : string) =
 
 let private setParameterAtPosition targetPrism position newParameter =
     let fullTargetOptic =
-        ExecutionState.LocalIcons_ >-> targetPrism >?> IconInstance.IconInstruction_
+        ExecutionState.LocalIcons_ >-> targetPrism >?> IconInstance.Operation_
     (replaceParameter position newParameter) ^% fullTargetOptic
 
 let private placePickup target state =
     let dropPickup =
         NoObject ^= ExecutionState.HeldObject_
 
-    let createNewIconAt x y instruction =
+    let createNewIconAt x y operation =
         let z = state.LastZ
-        let newIconInstance = createIconInstance x y z instruction
+        let newIconInstance = createIconInstance x y z operation
         state
         |> cons newIconInstance ^% ExecutionState.LocalIcons_
         |> incrementLastZ
@@ -184,16 +184,16 @@ let private placePickup target state =
 
     let heldObject = state ^. ExecutionState.HeldObject_
     match (target, heldObject) with
-    | (Position (x, y), NewIcon instruction) ->
-        createNewIconAt x y instruction |> dropPickup
+    | (Position (x, y), NewIcon operation) ->
+        createNewIconAt x y operation |> dropPickup
     | (Position (x, y), ExistingIcon iconPrism) ->
         placeIconAt x y iconPrism |> dropPickup
     | (IconParameter (targetPrism, position), Number number) ->
         setParameterAtPosition targetPrism position (Some number) state |> dropPickup
     | (_, _) -> state
 
-let rec private evaluateIconInstruction customIcons iconInstruction =
-    match iconInstruction with
+let rec private evaluateIconOperation customIcons iconOperation =
+    match iconOperation with
     | Unary(op, arg) ->
         evalUnaryOperation op arg
     | Binary(op, arg1, arg2) ->
@@ -211,8 +211,8 @@ and private appendIfResultToState ifResult =
     cons (intToBool ifResult) ^% ExecutionState.CurrentBranchChoices_
 
 and private evaluateIconInstance customIcons iconInstance =
-    let iconInstruction = iconInstance.IconInstruction
-    let result = evaluateIconInstruction customIcons iconInstruction
+    let operation = iconInstance.Operation
+    let result = evaluateIconOperation customIcons operation
     {iconInstance with Result = result}
 
 and private evaluateIcon customIcons iconPrism =
@@ -222,7 +222,7 @@ and private evaluateBranchingIcon customIcons iconPrism state =
     let stateWithEvaluatedIcon = evaluateIcon customIcons iconPrism state
     let icon =  stateWithEvaluatedIcon ^. (ExecutionState.LocalIcons_ >-> iconPrism)
     match icon with
-    | Some { IconInstruction = If _; Result = Some result } ->
+    | Some { Operation = If _; Result = Some result } ->
         stateWithEvaluatedIcon |> appendIfResultToState result
     | _ -> stateWithEvaluatedIcon
 
@@ -231,8 +231,8 @@ and applyExecutionActionNode customIcons (actionNode : ExecutionActionTree) stat
         match action with
         | EvaluateSimpleIcon iconPrism ->
             evaluateIcon customIcons iconPrism
-        | PickupNewIcon instruction ->
-            (NewIcon instruction) ^= ExecutionState.HeldObject_
+        | PickupNewIcon operation ->
+            (NewIcon operation) ^= ExecutionState.HeldObject_
         | PickupIcon iconPrism ->
             (ExistingIcon iconPrism) ^= ExecutionState.HeldObject_
         | PickupNumber parameter ->

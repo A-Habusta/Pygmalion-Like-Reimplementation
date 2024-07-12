@@ -1,7 +1,7 @@
 module PygmalionReimplementation.SimpleEval
 
 type UnderlyingNumberDataType = int
-type IconInstructionParameter = UnderlyingNumberDataType option
+type IconOperationParameter = UnderlyingNumberDataType option
 
 type UnaryIconFunction = (UnderlyingNumberDataType -> UnderlyingNumberDataType)
 type BinaryIconFunction = (UnderlyingNumberDataType -> UnderlyingNumberDataType -> UnderlyingNumberDataType)
