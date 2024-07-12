@@ -102,8 +102,8 @@ let private renderIcon
             | Unary (op, _) -> op.Name
             | Binary (op, _, _) -> op.Name
             | If _ -> "If"
-            | CallCustomIcon (prism, _) ->
-                state ^. (State.CustomIcons_ >-> prism >?> CustomIcon.Name_)
+            | CallCustomOperation (prism, _) ->
+                state ^. (State.CustomOperations_ >-> prism >?> CustomOperation.Name_)
                 |> Option.defaultValue "Invalid Icon Call"
         let iconDecoratorText (text : string) =
             Html.div [
@@ -119,7 +119,7 @@ let private renderIcon
             | If (_) ->
                     [  iconDecoratorText "If"
                        renderedParameters[0] ]
-            | CallCustomIcon _ ->
+            | CallCustomOperation _ ->
                 let name = getIconName icon.Operation
                 iconDecoratorText name :: renderedParameters
 
@@ -157,7 +157,7 @@ let private renderIcon
             | Unary _ -> EvaluateSimpleIcon iconPrism |> dispatchSimple
             | Binary _ -> EvaluateSimpleIcon iconPrism |> dispatchSimple
             | If _ -> EvaluateBranchingIcon iconPrism |> wrapBranchingAction |> dispatch
-            | CallCustomIcon _ -> EvaluateSimpleIcon iconPrism |> dispatchSimple
+            | CallCustomOperation _ -> EvaluateSimpleIcon iconPrism |> dispatchSimple
         let moveHandler e =
             mouseEventPreventPropagation e
             PickupIcon iconPrism |> dispatchSimple
@@ -257,20 +257,20 @@ let private defaultIconSpawnersView (dispatch : Action -> unit) : ReactElement =
         ]
     defaultIconSpawners
 
-let private customIconSpawnersView (state : State) (dispatch : Action -> unit) : ReactElement =
-    let customIconSpawnerBaseList =
-        state.CustomIcons
+let private customOperationSpawnersView (state : State) (dispatch : Action -> unit) : ReactElement =
+    let customOperationSpawnerBaseList =
+        state.CustomOperations
         |> List.mapi (fun index icon -> (index, icon)) // Done like this to preserve the index
-        |> List.filter (fun (_, icon) -> icon.Name <> initialCustomIconName)
+        |> List.filter (fun (_, icon) -> icon.Name <> initialCustomOperationName)
         |> List.map (fun (index, icon) ->
             let iconParameters = List.init icon.ParameterCount (fun _ -> None)
             let iconPrism = List.pos_ index
-            let finalIconOperation = CallCustomIcon (iconPrism, iconParameters)
+            let finalIconOperation = CallCustomOperation (iconPrism, iconParameters)
             (icon.Name, finalIconOperation) )
     Html.div [
         prop.id "custom-icon-spawners"
         prop.children [
-            iconSpawnerListTemplate dispatch "Custom" customIconSpawnerBaseList
+            iconSpawnerListTemplate dispatch "Custom" customOperationSpawnerBaseList
         ]
     ]
 let private constantSpawnerView (state : State) (dispatch : Action -> unit) : ReactElement =
@@ -300,7 +300,7 @@ let private heldObjectView (state : State) =
         | Unary (op, _) -> sprintf "Unary %s" op.Name
         | Binary (op, _, _) -> sprintf "Binary %s" op.Name
         | If _ -> "If"
-        | CallCustomIcon _ -> "Call Custom Icon"
+        | CallCustomOperation _ -> "Call Custom Operation"
     let heldObjectToString =
         let object = state.ExecutionState.HeldObject
         match object with
@@ -341,7 +341,7 @@ let private tabView (state : State) (dispatch : Action -> unit) : ReactElement =
 
     tabs
 
-let private customIconCreatorView (state : State) (dispatch : Action -> unit) : ReactElement =
+let private customOperationCreatorView (state : State) (dispatch : Action -> unit) : ReactElement =
     let dispatchInput = InputAction >> dispatch
     let iconNameInput =
         Html.input [
@@ -349,7 +349,7 @@ let private customIconCreatorView (state : State) (dispatch : Action -> unit) : 
             prop.type' "text"
             prop.placeholder "Icon Name"
             prop.onTextChange (fun newText ->
-                SetCustomIconCreatorName newText |> dispatchInput )
+                SetCustomOperationCreatorName newText |> dispatchInput )
         ]
     let iconParamCountInput =
         Html.input [
@@ -357,13 +357,13 @@ let private customIconCreatorView (state : State) (dispatch : Action -> unit) : 
             prop.type' "number"
             prop.placeholder "Parameter Count"
             prop.onTextChange (fun newText ->
-                SetCustomIconParameterCount newText |> dispatchInput )
+                SetCustomOperationParameterCount newText |> dispatchInput )
         ]
     let createNewIconButton =
-        let nameField = state.InputState.CustomIconCreatorName
-        let paramCountField = state.InputState.CustomIconCreatorParameterCount
+        let nameField = state.InputState.CustomOperationCreatorName
+        let paramCountField = state.InputState.CustomOperationCreatorParameterCount
 
-        let nameValid = isCustomIconNameValid nameField
+        let nameValid = isCustomOperationNameValid nameField
         let paramCountValid = isNumber paramCountField
 
         let isInputValid = nameValid && paramCountValid
@@ -374,11 +374,11 @@ let private customIconCreatorView (state : State) (dispatch : Action -> unit) : 
             prop.text "New Icon"
             prop.onClick (fun _ ->
                 (nameField, int paramCountField)
-                |> CreateNewCustomIcon
+                |> CreateNewCustomOperation
                 |> dispatch
             )
         ]
-    let customIconCreator =
+    let customOperationCreator =
         Html.div [
             prop.id "custom-icon-creator"
             prop.children [
@@ -388,7 +388,7 @@ let private customIconCreatorView (state : State) (dispatch : Action -> unit) : 
             ]
         ]
 
-    customIconCreator
+    customOperationCreator
 
 let private tabParametersView (state : State) (dispatch : Action -> unit) : ReactElement =
     let drawParameter index (parameter : int) =
@@ -463,9 +463,9 @@ let private renderProgram (state : State) (dispatch : Action -> unit) : ReactEle
             heldObjectView state
             tabParametersView state dispatch
             defaultIconSpawnersView dispatch
-            customIconSpawnersView state dispatch
+            customOperationSpawnersView state dispatch
             iconCanvas state dispatch
-            customIconCreatorView state dispatch
+            customOperationCreatorView state dispatch
             constantSpawnerView state dispatch
             resultFieldView state dispatch
             tabView state dispatch
