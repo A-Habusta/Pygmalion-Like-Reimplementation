@@ -28,7 +28,7 @@ type IconOperation =
             | CallCustomOperation (iconType, _) -> CallCustomOperation(iconType, parameters)
         (view, update)
 
-and IconInstance =
+and Icon =
     { X : int
       Y : int
       Z : int // Used for drawing overlapping icons
@@ -36,28 +36,28 @@ and IconInstance =
       Result : UnderlyingNumberDataType option }
 
     static member X_ =
-        _.X, (fun newValue instance -> { instance with X = newValue })
+        _.X, (fun newValue icon -> { icon with X = newValue })
     static member Y_ =
-        _.Y, (fun newValue instance -> { instance with Y = newValue })
+        _.Y, (fun newValue icon -> { icon with Y = newValue })
     static member Z_ =
-        _.Z, (fun newValue instance -> { instance with Z = newValue })
+        _.Z, (fun newValue icon -> { icon with Z = newValue })
     static member Operation_ =
-        _.Operation, (fun newValue instance -> { instance with Operation = newValue })
+        _.Operation, (fun newValue icon -> { icon with Operation = newValue })
     static member Result_ =
-        _.Result, (fun newValue instance -> { instance with Result = newValue })
+        _.Result, (fun newValue icon -> { icon with Result = newValue })
 
-and IconInstances = IconInstance list
-and IconInstancePrism = Prism<IconInstances, IconInstance>
+and Icons = Icon list
+and IconPrism = Prism<Icons, Icon>
 
 and MovableObject =
     | NoObject
-    | ExistingIcon of IconInstancePrism
+    | ExistingIcon of IconPrism
     | NewIcon of IconOperation
     | Number of UnderlyingNumberDataType
 
 and MovableObjectTarget =
     | Position of x : int * y : int
-    | IconParameter of target : IconInstancePrism * position : int
+    | IconParameter of target : IconPrism * position : int
 
 and CustomOperation =
     { Name : string
@@ -65,26 +65,26 @@ and CustomOperation =
       ActionTree : ExecutionActionTree }
 
     static member Name_ =
-        _.Name, (fun newValue instance -> { instance with CustomOperation.Name = newValue })
+        _.Name, (fun newValue icon -> { icon with CustomOperation.Name = newValue })
     static member ParameterCount_ =
-        _.ParameterCount, (fun newValue instance -> { instance with ParameterCount = newValue })
+        _.ParameterCount, (fun newValue icon -> { icon with ParameterCount = newValue })
     static member LocalActionTree_ =
-        _.ActionTree, (fun newValue instance -> { instance with ActionTree = newValue })
+        _.ActionTree, (fun newValue icon -> { icon with ActionTree = newValue })
 
 and SimpleExecutionAction =
-    | EvaluateSimpleIcon of IconInstancePrism
+    | EvaluateSimpleIcon of IconPrism
     | PickupNewIcon of IconOperation
-    | PickupIcon of IconInstancePrism
+    | PickupIcon of IconPrism
     | PickupNumber of UnderlyingNumberDataType
     | PickupExecutionStateParameter of parameterIndex : int
-    | PickupIconResult of IconInstancePrism
+    | PickupIconResult of IconPrism
     | PlacePickup of MovableObjectTarget
     | CancelPickup
-    | RemoveIcon of remover : (IconInstances -> IconInstances)
-    | RemoveIconParameter of target : IconInstancePrism * position : int
+    | RemoveIcon of remover : (Icons -> Icons)
+    | RemoveIconParameter of target : IconPrism * position : int
 
 and BranchingExecutionAction =
-    | EvaluateBranchingIcon of IconInstancePrism
+    | EvaluateBranchingIcon of IconPrism
 
 and FinalExecutionAction =
     | SaveResult
@@ -105,24 +105,24 @@ let initialCustomOperationIndex = 0
 
 type ExecutionState =
     { HeldObject : MovableObject
-      LocalIcons : IconInstances
+      LocalIcons : Icons
       CurrentBranchChoices : bool list
       Parameters : UnderlyingNumberDataType list
       Result : UnderlyingNumberDataType option
       LastZ : int }
 
     static member HeldObject_ =
-        _.HeldObject, (fun newValue instance -> { instance with HeldObject = newValue})
+        _.HeldObject, (fun newValue icon -> { icon with HeldObject = newValue})
     static member LocalIcons_ =
-        _.LocalIcons, (fun newValue instance -> { instance with LocalIcons = newValue })
+        _.LocalIcons, (fun newValue icon -> { icon with LocalIcons = newValue })
     static member CurrentBranchChoices_ =
-        _.CurrentBranchChoices, (fun newValue instance -> { instance with CurrentBranchChoices = newValue })
+        _.CurrentBranchChoices, (fun newValue icon -> { icon with CurrentBranchChoices = newValue })
     static member Parameters_ =
-        _.Parameters, (fun newValue instance -> { instance with Parameters = newValue })
+        _.Parameters, (fun newValue icon -> { icon with Parameters = newValue })
     static member Result_ =
-        _.Result, (fun newValue instance -> { instance with ExecutionState.Result = newValue })
+        _.Result, (fun newValue icon -> { icon with ExecutionState.Result = newValue })
     static member LastZ_ =
-        _.LastZ, (fun newValue instance -> { instance with LastZ = newValue })
+        _.LastZ, (fun newValue icon -> { icon with LastZ = newValue })
 
 let baseExecutionState parameters =
     { HeldObject = NoObject
@@ -147,7 +147,7 @@ let replaceParameter position newParameter operation =
     let transform = listReplaceIndex position newParameter
     transformOperationParameters transform operation
 
-let createIconInstance x y z operation =
+let createIcon x y z operation =
     { Operation = operation
       Result = None
       X = x
@@ -159,7 +159,7 @@ let customOperationNameContainsInvalidCharacter (name : string) =
 
 let private setParameterAtPosition targetPrism position newParameter =
     let fullTargetOptic =
-        ExecutionState.LocalIcons_ >-> targetPrism >?> IconInstance.Operation_
+        ExecutionState.LocalIcons_ >-> targetPrism >?> Icon.Operation_
     (replaceParameter position newParameter) ^% fullTargetOptic
 
 let private placePickup target state =
@@ -168,18 +168,18 @@ let private placePickup target state =
 
     let createNewIconAt x y operation =
         let z = state.LastZ
-        let newIconInstance = createIconInstance x y z operation
+        let newIcon = createIcon x y z operation
         state
-        |> cons newIconInstance ^% ExecutionState.LocalIcons_
+        |> cons newIcon ^% ExecutionState.LocalIcons_
         |> incrementLastZ
 
     let placeIconAt x y targetPrism =
         let fullIconPrism = ExecutionState.LocalIcons_ >-> targetPrism
         let z  = state.LastZ
         state
-        |> x ^= (fullIconPrism >?> IconInstance.X_)
-        |> y ^= (fullIconPrism >?> IconInstance.Y_)
-        |> z ^= (fullIconPrism >?> IconInstance.Z_)
+        |> x ^= (fullIconPrism >?> Icon.X_)
+        |> y ^= (fullIconPrism >?> Icon.Y_)
+        |> z ^= (fullIconPrism >?> Icon.Z_)
         |> incrementLastZ
 
     let heldObject = state ^. ExecutionState.HeldObject_
@@ -210,16 +210,16 @@ let rec private evaluateIconOperation customOperations iconOperation =
 and private appendIfResultToState ifResult =
     cons (intToBool ifResult) ^% ExecutionState.CurrentBranchChoices_
 
-and private evaluateIconInstance customOperations iconInstance =
-    let operation = iconInstance.Operation
+and private evaluateIcon customOperations icon =
+    let operation = icon.Operation
     let result = evaluateIconOperation customOperations operation
-    {iconInstance with Result = result}
+    {icon with Result = result}
 
-and private evaluateIcon customOperations iconPrism =
-    evaluateIconInstance customOperations ^% (ExecutionState.LocalIcons_ >-> iconPrism)
+and private evaluateIconFromPrism customOperations iconPrism =
+    evaluateIcon customOperations ^% (ExecutionState.LocalIcons_ >-> iconPrism)
 
 and private evaluateBranchingIcon customOperations iconPrism state =
-    let stateWithEvaluatedIcon = evaluateIcon customOperations iconPrism state
+    let stateWithEvaluatedIcon = evaluateIconFromPrism customOperations iconPrism state
     let icon =  stateWithEvaluatedIcon ^. (ExecutionState.LocalIcons_ >-> iconPrism)
     match icon with
     | Some { Operation = If _; Result = Some result } ->
@@ -230,7 +230,7 @@ and applyExecutionActionNode customOperations (actionNode : ExecutionActionTree)
     let applySimpleExecutionAction customOperations action =
         match action with
         | EvaluateSimpleIcon iconPrism ->
-            evaluateIcon customOperations iconPrism
+            evaluateIconFromPrism customOperations iconPrism
         | PickupNewIcon operation ->
             (NewIcon operation) ^= ExecutionState.HeldObject_
         | PickupIcon iconPrism ->
@@ -244,7 +244,7 @@ and applyExecutionActionNode customOperations (actionNode : ExecutionActionTree)
                 state |> (Number parameter) ^= ExecutionState.HeldObject_
         | PickupIconResult iconPrism ->
             fun state ->
-                let iconOptic = ExecutionState.LocalIcons_ >-> iconPrism >?> IconInstance.Result_
+                let iconOptic = ExecutionState.LocalIcons_ >-> iconPrism >?> Icon.Result_
                 let result = state ^. iconOptic |> Option.flatten |> Option.defaultValue 0
                 state |> (Number result) ^= ExecutionState.HeldObject_
         | CancelPickup ->

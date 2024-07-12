@@ -62,7 +62,7 @@ let private renderIcon
     (state : State)
     (dispatch : Action -> unit)
     (iconIndex : int)
-    (icon : IconInstance)
+    (icon : Icon)
     : ReactElement =
     let dispatchSimple = wrapSimpleAction >> dispatch
     let stateIsHoldingObject = stateIsHoldingObject state
@@ -110,7 +110,7 @@ let private renderIcon
                 prop.text text
                 prop.className "icon-decorator"
             ]
-        let decorateIcon (icon : IconInstance) (renderedParameters : ReactElement list) =
+        let decorateIcon (icon : Icon) (renderedParameters : ReactElement list) =
             match icon.Operation with
             | Unary (op, _) ->
                 [ iconDecoratorText op.Name ; renderedParameters[0] ]
@@ -137,7 +137,7 @@ let private renderIcon
                 Html.div [
                     prop.className "icon-io-field"
                     prop.children (
-                        List.mapi renderParameter (icon ^. (IconInstance.Operation_ >-> IconOperation.Params_))
+                        List.mapi renderParameter (icon ^. (Icon.Operation_ >-> IconOperation.Params_))
                         |> decorateIcon icon )
                 ]
         IOField
@@ -211,7 +211,7 @@ let private renderIcon
         ]
     icon
 
-let private renderIconInstances (state : State) (dispatch : Action -> unit) : ReactElement list =
+let private renderIcons (state : State) (dispatch : Action -> unit) : ReactElement list =
     state.ExecutionState.LocalIcons
     |> List.mapi (renderIcon state dispatch)
 
@@ -452,7 +452,7 @@ let private iconCanvas (state : State) (dispatch : Action -> unit) : ReactElemen
         Html.div [
             prop.id "icon-canvas"
             prop.onClick canvasOnClick
-            prop.children (renderIconInstances state dispatch)
+            prop.children (renderIcons state dispatch)
         ]
     canvas
 
