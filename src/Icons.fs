@@ -65,11 +65,11 @@ and CustomOperation =
       ActionTree : ExecutionActionTree }
 
     static member Name_ =
-        _.Name, (fun newValue icon -> { icon with CustomOperation.Name = newValue })
+        _.Name, (fun newValue operation -> { operation with CustomOperation.Name = newValue })
     static member ParameterCount_ =
-        _.ParameterCount, (fun newValue icon -> { icon with ParameterCount = newValue })
+        _.ParameterCount, (fun newValue operation -> { operation with ParameterCount = newValue })
     static member LocalActionTree_ =
-        _.ActionTree, (fun newValue icon -> { icon with ActionTree = newValue })
+        _.ActionTree, (fun newValue operation -> { operation with ActionTree = newValue })
 
 and SimpleExecutionAction =
     | EvaluateSimpleIcon of IconPrism
@@ -112,17 +112,17 @@ type ExecutionState =
       LastZ : int }
 
     static member HeldObject_ =
-        _.HeldObject, (fun newValue icon -> { icon with HeldObject = newValue})
+        _.HeldObject, (fun newValue oldState -> { oldState with HeldObject = newValue})
     static member LocalIcons_ =
-        _.LocalIcons, (fun newValue icon -> { icon with LocalIcons = newValue })
+        _.LocalIcons, (fun newValue oldState -> { oldState with LocalIcons = newValue })
     static member CurrentBranchChoices_ =
-        _.CurrentBranchChoices, (fun newValue icon -> { icon with CurrentBranchChoices = newValue })
+        _.CurrentBranchChoices, (fun newValue oldState -> { oldState with CurrentBranchChoices = newValue })
     static member Parameters_ =
-        _.Parameters, (fun newValue icon -> { icon with Parameters = newValue })
+        _.Parameters, (fun newValue oldState -> { oldState with Parameters = newValue })
     static member Result_ =
-        _.Result, (fun newValue icon -> { icon with ExecutionState.Result = newValue })
+        _.Result, (fun newValue oldState -> { oldState with ExecutionState.Result = newValue })
     static member LastZ_ =
-        _.LastZ, (fun newValue icon -> { icon with LastZ = newValue })
+        _.LastZ, (fun newValue oldState -> { oldState with LastZ = newValue })
 
 let baseExecutionState parameters =
     { HeldObject = NoObject
@@ -135,7 +135,7 @@ let baseExecutionState parameters =
 let private invalidCustomOperationNameCharacters = "\t\n\r_"
 
 exception private InternalRecursionTrapException of ExecutionState
-exception RecursionTrapException of CustomOperationPrism * UnderlyingNumberDataType list * ExecutionState
+exception RecursionTrapException of CustomOperationPrism * ExecutionState
 
 let private incrementLastZ =
     (+) 1 ^% ExecutionState.LastZ_
@@ -298,7 +298,7 @@ and buildExecutionStateForCustomOperation customOperations (customOperationOptic
     try
         applyExecutionActionTree customOperations actionTree baseExecutionState
     with InternalRecursionTrapException newState ->
-        RecursionTrapException(customOperationOptic, parameters, newState) |> raise
+        RecursionTrapException(customOperationOptic, newState) |> raise
 
 let appendNewActionToTree newAction choicesList (actionTree : ExecutionActionTree) =
     let rec appendNewActionToTree' choicesList actionTree =

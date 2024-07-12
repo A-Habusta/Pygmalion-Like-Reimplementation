@@ -106,8 +106,8 @@ let createTabFromCustomOperation customOperations customOperationPrism parameter
     let name = customOperation.Name
     createTab name customOperationPrism parameters
 
-let onTrap prism parameters executionState state =
-    let tab = createTabFromCustomOperation state.CustomOperations prism parameters
+let onTrap prism executionState state =
+    let tab = createTabFromCustomOperation state.CustomOperations prism executionState.Parameters
     state |> cons tab ^% State.Tabs_ |> executionState ^= State.ExecutionState_
 
 let executionContextEqual state (customOperationPrism1, parameters1) (customOperationPrism2, parameters2) =
@@ -126,13 +126,13 @@ let switchToTopTab (state : State) : State =
         let executionState =
             buildExecutionStateForCustomOperation state.CustomOperations tab.TabCustomOperationPrism tab.TabParameters
         state |> executionState ^= State.ExecutionState_
-    with RecursionTrapException (offendingIconPrism, parameters, trapExecutionState) ->
+    with RecursionTrapException (offendingIconPrism, trapExecutionState) ->
         let trapInCurrentTab =
-            executionContextEqual state (offendingIconPrism, parameters) (tab.TabCustomOperationPrism, tab.TabParameters)
+            executionContextEqual state (offendingIconPrism, trapExecutionState.Parameters) (tab.TabCustomOperationPrism, tab.TabParameters)
         if trapInCurrentTab then
             state |> trapExecutionState ^= State.ExecutionState_
         else
-            onTrap offendingIconPrism parameters trapExecutionState state
+            onTrap offendingIconPrism trapExecutionState state
 
 let removeTopTab (state : State) : State =
     state |> List.tail ^% State.Tabs_ |> switchToTopTab
@@ -157,12 +157,11 @@ let rec update (action : Action) state =
             let customOperationName = state.InputState.CustomOperationCreatorName
             let parameterCountText = state.InputState.CustomOperationCreatorParameterCount
             match (isNumber parameterCountText, isCustomOperationNameValid customOperationName) with
-            | (false, _) -> state
-            | (_, false) -> state
             | (true, true) ->
                 let parameterCount = int parameterCountText
                 let customOperation = createCustomOperation customOperationName parameterCount
                 state |> appendReverse [customOperation] ^% State.CustomOperations_
+            | _ -> state
         | PressConstantSpawnerButton ->
             let constantText = state.InputState.ConstantSpawnerText
             match isNumber constantText with
@@ -194,8 +193,8 @@ let rec update (action : Action) state =
             stateWithAction
             |> applyExecutionActionNode stateWithAction.CustomOperations iconAction ^% State.ExecutionState_
             |> removeTopTabIfResultIsSome
-        with RecursionTrapException (offendingCustomOperation, parameters, executionState) ->
-            onTrap offendingCustomOperation parameters executionState stateWithAction
+        with RecursionTrapException (offendingCustomOperation, executionState) ->
+            onTrap offendingCustomOperation executionState stateWithAction
     let createNewCustomOperation name parameterCount state =
         let nameAlreadyExists =
             state.CustomOperations |> List.exists (fun icon -> icon.Name = name)
