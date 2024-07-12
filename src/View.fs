@@ -62,7 +62,7 @@ let private renderIcon
     (state : State)
     (dispatch : Action -> unit)
     (iconIndex : int)
-    (icon : DrawnIcon)
+    (icon : IconInstance)
     : ReactElement =
     let dispatchSimple = wrapSimpleAction >> dispatch
     let stateIsHoldingObject = stateIsHoldingObject state
@@ -110,7 +110,7 @@ let private renderIcon
                 prop.text text
                 prop.className "icon-decorator"
             ]
-        let decorateIcon (icon : DrawnIcon) (renderedParameters : ReactElement list) =
+        let decorateIcon (icon : IconInstance) (renderedParameters : ReactElement list) =
             match icon.IconInstruction with
             | Unary (op, _) ->
                 [ iconDecoratorText op.Name ; renderedParameters[0] ]
@@ -137,7 +137,7 @@ let private renderIcon
                 Html.div [
                     prop.className "icon-io-field"
                     prop.children (
-                        List.mapi renderParameter (icon ^. (DrawnIcon.IconInstruction_ >-> IconInstruction.Params_))
+                        List.mapi renderParameter (icon ^. (IconInstance.IconInstruction_ >-> IconInstruction.Params_))
                         |> decorateIcon icon )
                 ]
         IOField
