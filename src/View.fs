@@ -371,7 +371,7 @@ let private customOperationCreatorView (state : State) (dispatch : Action -> uni
         Html.button [
             prop.className "custom-icon-creator-create-button"
             prop.disabled (not isInputValid)
-            prop.text "New Icon"
+            prop.text "New Operation"
             prop.onClick (fun _ ->
                 (nameField, int paramCountField)
                 |> CreateNewCustomOperation
