@@ -347,7 +347,7 @@ let private customOperationCreatorView (state : State) (dispatch : Action -> uni
         Html.input [
             prop.className "custom-icon-creator-name-input"
             prop.type' "text"
-            prop.placeholder "Icon Name"
+            prop.placeholder "Operation Name"
             prop.onTextChange (fun newText ->
                 SetCustomOperationCreatorName newText |> dispatchInput )
         ]
