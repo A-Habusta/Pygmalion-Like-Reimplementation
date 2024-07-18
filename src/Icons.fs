@@ -162,6 +162,12 @@ let private setParameterAtPosition targetPrism position newParameter =
         ExecutionState.LocalIcons_ >-> targetPrism >?> Icon.Operation_
     (replaceParameter position newParameter) ^% fullTargetOptic
 
+/// <summary>
+/// Places the held object at the target position.
+/// </summary>
+/// <param name="target">The target position or icon parameter.</param>
+/// <param name="state">The current execution state.</param>
+/// <returns>The new execution state.</returns>
 let private placePickup target state =
     let dropPickup =
         NoObject ^= ExecutionState.HeldObject_
@@ -190,8 +196,14 @@ let private placePickup target state =
         placeIconAt x y iconPrism |> dropPickup
     | (IconParameter (targetPrism, position), Number number) ->
         setParameterAtPosition targetPrism position (Some number) state |> dropPickup
-    | (_, _) -> state
+    | (_, _) -> state // Ignore all invalid placements
 
+/// <summary>
+/// Evaluates the given icon operation.
+/// </summary>
+/// <param name="customOperations">List of all available custom operations.</param>
+/// <param name="iconOperation">The icon operation to evaluate.</param>
+/// <returns>The result of the evaluation wrapped in an option.</returns>
 let rec private evaluateIconOperation customOperations iconOperation =
     match iconOperation with
     | Unary(op, arg) ->
@@ -210,14 +222,33 @@ let rec private evaluateIconOperation customOperations iconOperation =
 and private appendIfResultToState ifResult =
     cons (intToBool ifResult) ^% ExecutionState.CurrentBranchChoices_
 
+/// <summary>
+/// Evaluates the given icon
+/// </summary>
+/// <param name="customOperations">List of all available custom operations.</param>
+/// <param name="icon">The icon to evaluate.</param>
+/// <returns>The icon with a new result value.</returns>
 and private evaluateIcon customOperations icon =
     let operation = icon.Operation
     let result = evaluateIconOperation customOperations operation
     {icon with Result = result}
 
+/// <summary>
+/// Evaluates the icon from the given prism and updates the state with the new icon.
+/// </summary>
+/// <param name="customOperations">List of all available custom operations.</param>
+/// <param name="iconPrism">The prism to get the icon from.</param>
+/// <returns>Function that evaluates the icon within a given state and returns a new state.</returns>
 and private evaluateIconFromPrism customOperations iconPrism =
     evaluateIcon customOperations ^% (ExecutionState.LocalIcons_ >-> iconPrism)
 
+/// <summary>
+/// Evaluates an icon with a branching operation and updates the state with the new icon.
+/// </summary>
+/// <param name="customOperations">List of all available custom operations.</param>
+/// <param name="iconPrism">The prism to get the icon from.</param>
+/// <param name="state">The current execution state.</param>
+/// <returns>The new execution state.</returns>
 and private evaluateBranchingIcon customOperations iconPrism state =
     let stateWithEvaluatedIcon = evaluateIconFromPrism customOperations iconPrism state
     let icon =  stateWithEvaluatedIcon ^. (ExecutionState.LocalIcons_ >-> iconPrism)
@@ -226,6 +257,14 @@ and private evaluateBranchingIcon customOperations iconPrism state =
         stateWithEvaluatedIcon |> appendIfResultToState result
     | _ -> stateWithEvaluatedIcon
 
+/// <summary>
+/// Applies a single execution action wrapped inside a tree to the given state.
+/// </summary>
+/// <param name="customOperations">List of all available custom operations.</param>
+/// <param name="actionNode">The action to apply.</param>
+/// <param name="state">The current execution state.</param>
+/// <throws cref="InternalRecursionTrapException">Thrown when a trap is encountered.</throws>
+/// <returns> The new execution state.</returns>
 and applyExecutionActionNode customOperations (actionNode : ExecutionActionTree) state =
     let applySimpleExecutionAction customOperations action =
         match action with
@@ -277,6 +316,15 @@ and applyExecutionActionNode customOperations (actionNode : ExecutionActionTree)
     | End action ->
         applyFinalExecutionAction action state
 
+/// <summary>
+/// Applies an entire execution action tree branch to the given state.
+/// The chosen branch depends on the results of the actions performed on the state.
+/// </summary>
+/// <param name="customOperations">List of all available custom operations.</param>
+/// <param name="actionTree">The action tree to apply.</param>
+/// <param name="state">The current execution state.</param>
+/// <throws cref="InternalRecursionTrapException">Thrown when a trap is encountered.</throws>
+/// <returns>The new execution state.</returns>
 and private applyExecutionActionTree customOperations (actionTree : ExecutionActionTree) state =
     let stateWithAppliedHeadAction = applyExecutionActionNode customOperations actionTree state
     let boundRecursiveCall next =
@@ -289,6 +337,15 @@ and private applyExecutionActionTree customOperations (actionTree : ExecutionAct
     | End _ ->
         stateWithAppliedHeadAction
 
+/// <summary>
+/// Builds a new execution state from a custom operation and the given parameters.
+/// In other words, it performs the given custom operation.
+/// </summary>
+/// <param name="customOperations">List of all available custom operations.</param>
+/// <param name="customOperationOptic">The optic to get the custom operation from the list.</param>
+/// <param name="parameters">The parameters to pass to the custom operation.</param>
+/// <throws cref="RecursionTrapException">Thrown when a trap is encountered.</throws>
+/// <returns>The created execution state.</returns>
 and buildExecutionStateForCustomOperation customOperations (customOperationOptic : CustomOperationPrism) parameters =
     let baseExecutionState = baseExecutionState parameters
     let actionTree=
@@ -300,6 +357,14 @@ and buildExecutionStateForCustomOperation customOperations (customOperationOptic
     with InternalRecursionTrapException newState ->
         RecursionTrapException(customOperationOptic, newState) |> raise
 
+/// <summary>
+/// Add new action to the end of the execution tree.
+/// The correct tree branch is chosen based on the given list of choices.
+/// </summary>
+/// <param name="newAction">The new action to append.</param>
+/// <param name="choicesList">The list of choices to determine the branch.</param>
+/// <param name="actionTree">The action tree to append to.</param>
+/// <returns>The new action tree with the appended action.</returns>
 let appendNewActionToTree newAction choicesList (actionTree : ExecutionActionTree) =
     let rec appendNewActionToTree' choicesList actionTree =
         match actionTree with
@@ -317,15 +382,24 @@ let appendNewActionToTree newAction choicesList (actionTree : ExecutionActionTre
 
     appendNewActionToTree' (List.rev choicesList) actionTree
 
-let defaultEnd = End Trap
+let trap = End Trap
+let resultSaveAction = End SaveResult
+
+/// <summary>
+/// Wraps a simple execution action in the correct tree structure.
+/// </summary>
+/// <param name="action">The simple action to wrap.</param>
+/// <returns>The wrapped action.</returns>
 let wrapSimpleExecutionAction action =
-    Linear(action, defaultEnd)
+    Linear(action, trap)
 
+/// <summary>
+/// Wraps a branching execution action in the correct tree structure.
+/// </summary>
+/// <param name="action">The simple action to wrap.</param>
+/// <returns>The wrapped action.</returns>
 let wrapBranchingExecutionAction action =
-    Branch(action, defaultEnd, defaultEnd)
-
-let resultSaveAction =
-    End SaveResult
+    Branch(action, trap, trap)
 
 let isCustomOperationNameValid name =
     isText name && not (customOperationNameContainsInvalidCharacter name)

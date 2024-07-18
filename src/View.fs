@@ -38,6 +38,10 @@ let private defaultBinaryOperators =
         { Name = "||"; Op = boolOutputToInt (fun x y -> x = FalseValue && y = FalseValue |> not) }
     ]
 
+/// <summary>
+/// Prevents the default action of the event and stops it from propagating.
+/// Primarily used to prevent clicks registering on multiple targets.
+/// </summary>
 let private mouseEventPreventPropagation (e : Browser.Types.MouseEvent) =
     e.preventDefault()
     e.stopPropagation()
@@ -58,6 +62,13 @@ let stateIsHoldingObject state  =
     | NoObject -> false
     | _ -> true
 
+/// <summary>
+/// Renders a single icon.
+/// </summary>
+/// <param name="state">The current state of the program.</param>
+/// <param name="dispatch">The dispatch function to send messages to the update function.</param>
+/// <param name="iconIndex">The index of the icon in the list of icons.</param>
+/// <param name="icon">The icon to render.</param>
 let private renderIcon
     (state : State)
     (dispatch : Action -> unit)
@@ -68,6 +79,7 @@ let private renderIcon
     let stateIsHoldingObject = stateIsHoldingObject state
     let iconPrism = List.pos_ iconIndex
 
+    // Renders the icon's input/output field, which displays the icons parameters or result.
     let renderIconIOField =
         let renderParameter (index : int) (parameter : IconOperationParameter) =
             let deleteButton =
@@ -142,6 +154,7 @@ let private renderIcon
                 ]
         IOField
 
+    // Render the buttons that allow the user to interact with the icon.
     let renderIconActions =
         let removeHandler e =
             mouseEventPreventPropagation e
@@ -195,6 +208,7 @@ let private renderIcon
 
         buttons
 
+    // Build the icon element.
     let icon =
         Html.div [
             prop.className "icon"
@@ -211,16 +225,36 @@ let private renderIcon
         ]
     icon
 
+/// <summary>
+/// Renders all icons in the current state.
+/// </summary>
+/// <param name="state">The current state of the program.</param>
+/// <param name="dispatch">The dispatch function to send messages to the update function.</param>
+/// <returns>A list of ReactElements, each representing a single icon.</returns>
 let private renderIcons (state : State) (dispatch : Action -> unit) : ReactElement list =
     state.ExecutionState.LocalIcons
     |> List.mapi (renderIcon state dispatch)
 
+/// <summary>
+/// Renders a single icon spawner, which is the button used for creating a new icon.
+/// </summary>
+/// <param name="text">The text to display on the button.</param>
+/// <param name="iconOperation">The operation that the icon created with this button should have.</param>
+/// <param name="dispatch">The dispatch function to send messages to the update function.</param>
+/// <returns>A ReactElement representing the icon spawner.</returns>
 let private iconSpawnerView (text : string) (iconOperation : IconOperation) (dispatch : Action -> unit) : ReactElement =
     Html.button [
         prop.className "icon-spawner-button"
         prop.text text
         prop.onClick (fun _ -> PickupNewIcon iconOperation |> wrapSimpleAction |> dispatch)
     ]
+/// <summary>
+/// Renders a list of icon spawners.
+/// </summary>
+/// <param name="dispatch">The dispatch function to send messages to the update function.</param>
+/// <param name="sectionName">The name of the section that the icon spawners belong to.</param>
+/// <param name="iconSource">A list of tuples, where the first element is the text to display on the button,
+/// and the second element is the operation that the icon created with this button should have.</param>
 let private iconSpawnerListTemplate dispatch (sectionName : string) iconSource =
     let iconSpawnerList =
         List.map
@@ -232,6 +266,11 @@ let private iconSpawnerListTemplate dispatch (sectionName : string) iconSource =
             prop.children (iconSpawnerList iconSource)
         ]
     ]
+/// <summary>
+/// Renders spawners for pre-defined icons.
+/// </summary>
+/// <param name="dispatch">The dispatch function to send messages to the update function.</param>
+/// <returns>A ReactElement representing the default icon spawners.</returns>
 let private defaultIconSpawnersView (dispatch : Action -> unit) : ReactElement =
     let boundIconSpawnerListTemplate = iconSpawnerListTemplate dispatch
     let defaultIconSpawners =
@@ -257,6 +296,12 @@ let private defaultIconSpawnersView (dispatch : Action -> unit) : ReactElement =
         ]
     defaultIconSpawners
 
+/// <summary>
+/// Renders spawners for custom icons.
+/// </summary>
+/// <param name="state">The current state of the program.</param>
+/// <param name="dispatch">The dispatch function to send messages to the update function.</param>
+/// <returns>A ReactElement representing the custom icon spawners.</returns>
 let private customOperationSpawnersView (state : State) (dispatch : Action -> unit) : ReactElement =
     let customOperationSpawnerBaseList =
         state.CustomOperations
@@ -273,6 +318,12 @@ let private customOperationSpawnersView (state : State) (dispatch : Action -> un
             iconSpawnerListTemplate dispatch "Custom" customOperationSpawnerBaseList
         ]
     ]
+/// <summary>
+/// Renders the constant spawner, which is an input used for creating constant values.
+/// </summary>
+/// <param name="state">The current state of the program.</param>
+/// <param name="dispatch">The dispatch function to send messages to the update function.</param>
+/// <returns>A ReactElement representing the constant spawner.</returns>
 let private constantSpawnerView (state : State) (dispatch : Action -> unit) : ReactElement =
     let dispatchInput = InputAction >> dispatch
     Html.div [
@@ -294,6 +345,11 @@ let private constantSpawnerView (state : State) (dispatch : Action -> unit) : Re
         ]
     ]
 
+/// <summary>
+/// Renders the held object view, which displays the currently held object.
+/// </summary>
+/// <param name="state">The current state of the program.</param>
+/// <returns>A ReactElement representing the held object view.</returns>
 let private heldObjectView (state : State) =
     let renderIconOperation operation =
         match operation with
@@ -322,6 +378,12 @@ let private heldObjectView (state : State) =
 
     heldObject
 
+/// <summary>
+/// Renders the tab view, which displays the currently open tabs.
+/// </summary>
+/// <param name="state">The current state of the program.</param>
+/// <param name="dispatch">The dispatch function to send messages to the update function.</param>
+/// <returns>A ReactElement representing the tab view.</returns>
 let private tabView (state : State) (dispatch : Action -> unit) : ReactElement =
     let singleTabView (tab : SingleTabState) =
         Html.div [
@@ -341,6 +403,12 @@ let private tabView (state : State) (dispatch : Action -> unit) : ReactElement =
 
     tabs
 
+/// <summary>
+/// Renders the custom operation creator view, which allows the user to create new custom operations.
+/// </summary>
+/// <param name="state">The current state of the program.</param>
+/// <param name="dispatch">The dispatch function to send messages to the update function.</param>
+/// <returns>A ReactElement representing the custom operation creator view.</returns>
 let private customOperationCreatorView (state : State) (dispatch : Action -> unit) : ReactElement =
     let dispatchInput = InputAction >> dispatch
     let iconNameInput =
@@ -390,6 +458,12 @@ let private customOperationCreatorView (state : State) (dispatch : Action -> uni
 
     customOperationCreator
 
+/// <summary>
+/// Renders the tab parameters view, which displays the parameters of the currently open tab.
+/// </summary>
+/// <param name="state">The current state of the program.</param>
+/// <param name="dispatch">The dispatch function to send messages to the update function.</param>
+/// <returns>A ReactElement representing the tab parameters view.</returns>
 let private tabParametersView (state : State) (dispatch : Action -> unit) : ReactElement =
     let drawParameter index (parameter : int) =
         let parameterText =
@@ -411,7 +485,12 @@ let private tabParametersView (state : State) (dispatch : Action -> unit) : Reac
                 |> List.mapi drawParameter )
         ]
     parameters
-
+/// <summary>
+/// Renders the result field view, which displays a box for storing the result of the current tab.
+/// </summary>
+/// <param name="state">The current state of the program.</param>
+/// <param name="dispatch">The dispatch function to send messages to the update function.</param>
+/// <returns>A ReactElement representing the result field view.</returns>
 let private resultFieldView (state : State) (dispatch : Action -> unit) : ReactElement =
     let saveResult e =
         mouseEventPreventPropagation e
@@ -436,6 +515,12 @@ let private resultFieldView (state : State) (dispatch : Action -> unit) : ReactE
 
     resultField
 
+/// <summary>
+/// Renders the icon canvas, which is the area where the user can place icons.
+/// </summary>
+/// <param name="state">The current state of the program.</param>
+/// <param name="dispatch">The dispatch function to send messages to the update function.</param>
+/// <returns>A ReactElement representing the icon canvas.</returns>
 let private iconCanvas (state : State) (dispatch : Action -> unit) : ReactElement =
     let canvasOnClick (e : Browser.Types.MouseEvent) =
         mouseEventPreventPropagation e
@@ -456,6 +541,12 @@ let private iconCanvas (state : State) (dispatch : Action -> unit) : ReactElemen
         ]
     canvas
 
+/// <summary>
+/// Renders the entire application.
+/// </summary>
+/// <param name="state">The current state of the program.</param>
+/// <param name="dispatch">The dispatch function to send messages to the update function.</param>
+/// <returns>A ReactElement representing the entire application.</returns>
 let private renderProgram (state : State) (dispatch : Action -> unit) : ReactElement =
     Html.div [
         prop.id "root-container"
@@ -477,6 +568,11 @@ let private renderProgram (state : State) (dispatch : Action -> unit) : ReactEle
                 CancelPickup |> wrapSimpleAction |> dispatch )
     ]
 
+/// <summary>
+/// Renders the initial popup that is displayed when the application is first opened.
+/// </summary>
+/// <param name="dispatch">The dispatch function to send messages to the update function.</param>
+/// <returns>A ReactElement representing the initial popup.</returns>
 let private renderIntialPopup dispatch =
     let popupText =
         [ Html.h3 "Before you begin!"
@@ -505,6 +601,14 @@ let private renderIntialPopup dispatch =
     ]
 
 
+/// <summary>
+/// Renders the entire application, with an overlayed popup at the start.
+///  The popup is displayed until the user clicks on it.
+/// </summary>
+/// <param name="state">The current state of the program.</param>
+/// <param name="dispatch">The dispatch function to send messages to the update function.</param>
+/// <returns>A ReactElement representing the entire application.</returns>
+/// <remarks>This function is called by the Elmish program.</remarks>
 let render (state : State) (dispatch : Action -> unit) =
     if state.IntialPopupClosed then
         // Render regular page
