@@ -5,3 +5,7 @@ This is my bachelors thesis program. The aim of the thesis is to recreate an exa
 
 The text of the thesis (which also contains a quick how-to in the appendix) is available here:
 <https://a-habusta.github.io/bachelors-thesis/thesis.pdf>
+
+
+A current version of the program is also available online at:
+<https://a-habusta.github.io/Pygmalion-Like-Reimplementation>
