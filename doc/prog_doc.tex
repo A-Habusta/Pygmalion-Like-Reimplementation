@@ -4,9 +4,142 @@
 \usepackage{graphicx}
 \usepackage{hyperref}
 \usepackage{float}
+\usepackage{listings}
+\usepackage{xcolor}
+
+\lstdefinelanguage{fsharp}{
+  keywords={var,in,foreach,let,type,null,match,with,for},
+  morecomment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  morestring=[b]",
+  sensitive=true
+}
+
+\lstset{ % use this to define styling for any other language
+  language=fsharp,
+  tabsize=4,
+  showstringspaces=false,
+  basicstyle=\footnotesize\tt\color{black!75},
+  identifierstyle=\bfseries\color{black},
+  commentstyle=\color{green!50!black},
+  stringstyle=\color{red!50!black},
+  keywordstyle=\color{blue!75!black}
+}
 
 \begin{document}
 
 \chapter*{Programmers Documentation}
+The application is built using the \texttt{Elmish}\footnote{\url{https://elmish.github.io/elmish/}} framework for \texttt{Fable}. \texttt{Fable} is an \texttt{F\#} transpiler to various languages.
+We use it to transpile our code to \texttt{JavaScript}. Then we use \texttt{Vite} to bundle the resultant \texttt{JavaScript} code and serve it to the browser.
+
+\section*{Project Structure}
+Elmish applications have four important parts:
+\begin{itemize}
+    \item \textbf{Model}: This is the state of the application. It is a record type that holds all the data that the application needs. In our application, we call this is represented by the \texttt{State} type.
+    \item \textbf{Message}: This is the type that represents all the possible actions that can be performed on the model. In our application, we call this type the \texttt{Action} type.
+    \item \textbf{Update}: This is a pure function that takes a message and the current model and returns a new model.
+    \item \textbf{View}: This is a pure function that takes the current model and returns the view of the application. We call this the \texttt{render} function.
+\end{itemize}
+
+In our application, the \texttt{render} function in its entirety is located within the \texttt{View.fs} file.
+The definition of the \texttt{State}, \texttt{Action} types and the \texttt{update} function are located in the \texttt{State.fs} file.
+
+
+\begin{lstlisting}
+type Action =
+    | InputAction of InputAction
+    | IconAction of ExecutionActionTree
+    | CreateNewCustomOperation of string * int
+    | CloseInitialPopup
+\end{lstlisting}
+\label{code:state}
+
+\begin{lstlisting}
+let rec update (action : Action) state =
+    match action with
+    | CreateNewCustomOperation (name, parameterCount) ->
+        createNewCustomOperation name parameterCount state
+    | InputAction inputAction ->
+        updateWithInputAction inputAction state
+    | IconAction iconAction ->
+        applyIconAction iconAction state
+    | CloseInitialPopup ->
+        state |> true ^= State.IntialPopupClosed_
+\end{lstlisting}
+\label{code:update}
+
+We can see multiple possible actions that can be performed on the model in the \texttt{Action} type.
+We will go over them briefly.
+\begin{itemize}
+    \item \texttt{InputAction}: This action is used to update the state of input fields and also signals some button presses.
+    \item \texttt{IconAction}: This action is used to update the state of the application based on the action performed on the icons. This action is the most imporant part of the application.
+    \item \texttt{CreateNewCustomOperation}: This action is used to create a new custom operation.
+    \item \texttt{CloseInitialPopup}: This action is used to close the initial popup that appears when the application is first loaded.
+\end{itemize}
+
+The \texttt{IconAction} is a wrapper for the \texttt{ExecutionActionTree} type. It, along with the \texttt{applyExecutionActionNode} function and the \texttt{ExecutionState} type form another nested model-message-update structure.
+
+\subsection*{Custom operation}
+The main use of our application is creating custom operations, represented by the \texttt{CustomOperation} type.
+Custom operations are calculation that can be called from within an icon. They are created by the user and can be used to perform complex calculations.
+For example, a user can create a custom operation that calculates the absolute value of a number.
+
+Custom operations are defined using \emph{Programming by demonstration.} That is, the user demonstrates the operation they want to create by performing the operation on some concrete input data.
+The operation that they performed are saved in a code list within the custom operation. When the custom operation is evaluated later, the actions from the code list are replayed on the new input data and the result is returned if the operation succeeded.
+The user can also specify the number of parameters that the custom operation takes.
+The \texttt{ExecutionActionTree} type is used to represent the actions that the user performed on the input data.
+The type is not a list but a tree, due to branching that can occur in the actions.
+The only example of branching is the use of an \texttt{If} operation. It receives an integer value interpreted as a boolean, and then switches to the correct action branch based on it.
+
+\subsection*{Normal operation}
+
+\begin{lstlisting}[language=fsharp]
+type ExecutionState =
+    { HeldObject : MovableObject
+      LocalIcons : Icons
+      CurrentBranchChoices : bool list
+      Parameters : UnderlyingNumberDataType list
+      Result : UnderlyingNumberDataType option
+      LastZ : int }
+\end{lstlisting}
+
+During normal operation, the user performs actions on the program which dispatches messages. These messages are then processed using the update function to update the state of the program.
+If these actions happen to be part of the \texttt{ExecutionActionTree}, then they are saved into the currently running custom operation.
+The execution action type contains actions that are necessary for the evaluation of custom operation. This includes actions such as creating new icons, moving objects around etc. The only actions that are not saved are the actions present in the \texttt{Action} type that do not fall under the \texttt{IconAction} umbrella.
+
+When such an action is dispatched, the main update function calls the above mentioned \texttt{applyExecutionActionNode} function to apply the action to the current state of the application. We will call this function the execution state update function.
+This function is designed to only edit the \texttt{ExecutionState} type. The main state contains an instance of this type. Another important part of the main state is the list of all custom operations.
+The execution state update function is used to update the execution state, and then the main update function saves the perfomed action into the code list of the currently running custom operation.
+
+Appending an action to the tree is slightly complicated, since we need to know which branch to use.
+The \texttt{appendNewActionToTree} function is used for this purpose. It has a parameter called the \emph{choices list}.
+
+First off, when we evaluate an \texttt{If} icon, the action tree is split into two branches. One branch represents the actions that are performed if the condition is true, and the other branch represents the actions that are performed if the condition is false.
+The \texttt{choices list} is used to keep track of the results of all the \texttt{If} icons on the current branch.
+The append function uses this list to traverse the tree and find the correct branch to append the action to.
+
+The list is added to whenever an \texttt{If} icon is evaluated. It is stored within the current execution state.
+
+\subsection*{Custom operation evaluation}
+In the simplest terms, custom operation evaluation is done by traversing the action tree and applying the actions to some base execution state.
+If the operation finishes successfully, then the result is returned from the execution state.
+
+The \texttt{buildExecutionStateForCustomOperation} function is used for this purpose.
+It calls the \texttt{applyExecutionActionTree} which just traverses one branch of the action tree and applies the actions to the execution state.
+The application of the actions is equivalent to the user performing the actions on the program, so all the above mentioned functions are used to apply the actions.
+This makes evaluating branches relatively simple.
+
+The one hurdle that we have not yet mentioned are \emph{traps}. There are only two ways to end an action tree branch.
+The first is saving some number into the result field of the execution state. If this action is performed then we say that the custom operation finished successfully.
+The alternative to this is a trap. When a trap is evaluated, it means that this branch of the custom operation is not valid and we have to define it.
+This is done by throwing an exception with the current execution state. The exception is then caught in the main update function, a new tab is created and the state is displayed on the screen.
+This allows the user to define the branch that caused the trap.
+
+\subsection*{Tabs}
+Tabs are used to represent the state of a computation of a custom operation. They can be thought of as function call frames placed on a stack.
+Whenever a trap is hit, a new tab is created and the state is displayed on the screen. This can happen multiple times.
+When a result is placed into the result box, the topmost tab is closed, and the second topmost tab starts evaluation again.
+If this evaluation also finishes successfully, then this tab is closed as well. This process continues until we hit another trap, or until we reach the internal \texttt{Main} tab.
+Tabs are managed exclusively by the main state and update functions.
 
 \end{document}
