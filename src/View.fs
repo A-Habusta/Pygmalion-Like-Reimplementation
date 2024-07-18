@@ -81,6 +81,7 @@ let private renderIcon
 
     // Renders the icon's input/output field, which displays the icons parameters or result.
     let renderIconIOField =
+        // Renders a single parameter box
         let renderParameter (index : int) (parameter : IconOperationParameter) =
             let deleteButton =
                 Html.div [
@@ -122,6 +123,7 @@ let private renderIcon
                 prop.text text
                 prop.className "icon-decorator"
             ]
+        // Decorates the icon with the operation name.
         let decorateIcon (icon : Icon) (renderedParameters : ReactElement list) =
             match icon.Operation with
             | Unary (op, _) ->
@@ -135,6 +137,7 @@ let private renderIcon
                 let name = getIconName icon.Operation
                 iconDecoratorText name :: renderedParameters
 
+        // Renders the icon's parameters or result, depending on whether the icon has been evaluated.
         let IOField =
             match icon.Result with
             | Some result ->
@@ -156,6 +159,7 @@ let private renderIcon
 
     // Render the buttons that allow the user to interact with the icon.
     let renderIconActions =
+        // Handlers for various button actions
         let removeHandler e =
             mouseEventPreventPropagation e
             listRemoveIndex iconIndex |> RemoveIcon |> dispatchSimple
