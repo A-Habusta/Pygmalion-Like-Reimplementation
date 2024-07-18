@@ -32,7 +32,7 @@
 *.thm
 *.soc
 *.loa
-*.pdf
+/*.pdf
 *.run.xml
 *.bcf
 *.synctex(busy)
